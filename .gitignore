@@ -1,0 +1,38 @@
+# deps
+node_modules/
+.pnpm-store/
+
+# build
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+
+# env / secrets
+.env
+.env.*
+!.env.example
+deploy/.env
+deploy/.env.*
+!deploy/.env.example
+
+# data / runtime
+data/
+*.sqlite
+*.sqlite-*
+.dev/
+*.log
+*.pid
+
+# foundry
+packages/smart-contracts/out/
+packages/smart-contracts/cache/
+packages/smart-contracts/broadcast/
+packages/smart-contracts/lib/
+
+# os / editor
+.DS_Store
+*.local
+.idea/
+.vscode/*
+!.vscode/extensions.json
