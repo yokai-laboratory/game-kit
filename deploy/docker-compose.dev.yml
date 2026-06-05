@@ -1,0 +1,35 @@
+# Local-dev backing services only: Postgres + Redis published on localhost so the api/web run on the
+# host via `pnpm dev` (fast HMR) while state lives in containers. The full stack (api/web/caddy in
+# containers) is docker-compose.yml. Used by scripts/dev.sh.
+
+name: game-kit-dev
+
+services:
+    postgres:
+        image: postgres:18-alpine
+        environment:
+            POSTGRES_USER: gamekit
+            POSTGRES_PASSWORD: gamekit
+            POSTGRES_DB: gamekit
+        ports:
+            - "5432:5432"
+        volumes:
+            - pg_dev:/var/lib/postgresql/data
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U gamekit -d gamekit"]
+            interval: 3s
+            timeout: 3s
+            retries: 20
+
+    redis:
+        image: redis:8-alpine
+        ports:
+            - "6379:6379"
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 3s
+            timeout: 3s
+            retries: 20
+
+volumes:
+    pg_dev:

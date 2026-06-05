@@ -1,0 +1,27 @@
+{
+    "name": "@game-kit/web",
+    "version": "0.0.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview",
+        "typecheck": "tsc --noEmit"
+    },
+    "dependencies": {
+        "@game-kit/game-coinflip": "workspace:*",
+        "@game-kit/game-core": "workspace:*",
+        "@titanium-games/sdk": "0.2.0",
+        "react": "19.2.7",
+        "react-dom": "19.2.7",
+        "react-router-dom": "7.16.0"
+    },
+    "devDependencies": {
+        "@types/react": "19.2.16",
+        "@types/react-dom": "19.2.3",
+        "@vitejs/plugin-react": "6.0.2",
+        "typescript": "6.0.3",
+        "vite": "8.0.16"
+    }
+}

@@ -1,0 +1,17 @@
+**/node_modules
+**/dist
+**/.turbo
+**/*.tsbuildinfo
+.git
+.dev
+**/.env
+**/.env.*
+!**/.env.example
+deploy/.env
+data
+*.log
+packages/smart-contracts/out
+packages/smart-contracts/cache
+packages/smart-contracts/lib
+packages/smart-contracts/dependencies
+packages/smart-contracts/broadcast

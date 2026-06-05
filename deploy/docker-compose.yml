@@ -1,0 +1,127 @@
+# game-kit base stack -- everything needed to run on a single VPS. Fits comfortably in ~1.5GB RAM.
+#
+#   caddy   : TLS + single-origin routing (80/443)
+#   web     : static SPA (nginx)
+#   api     : Hono server (stateless, scale with --scale api=N)
+#   migrate : one-shot schema bootstrap, runs before api
+#   postgres: durable game/room/payment state
+#   redis   : websocket fan-out + cache
+#
+# Usage (from deploy/):  docker compose --env-file .env up -d --build
+# Scale the API:         docker compose --env-file .env up -d --scale api=3
+# Optional overlays:     -f docker-compose.yml -f docker-compose.observability.yml   (Grafana/OTel)
+#                        -f docker-compose.yml -f docker-compose.anvil.yml           (local chain)
+
+name: game-kit
+
+services:
+    postgres:
+        image: postgres:18-alpine
+        restart: unless-stopped
+        environment:
+            POSTGRES_USER: ${POSTGRES_USER:-gamekit}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gamekit}
+            POSTGRES_DB: ${POSTGRES_DB:-gamekit}
+        volumes:
+            - pg_data:/var/lib/postgresql/data
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gamekit} -d ${POSTGRES_DB:-gamekit}"]
+            interval: 5s
+            timeout: 5s
+            retries: 20
+        # Not published to the host by default -- only the api/migrate containers reach it.
+
+    redis:
+        image: redis:8-alpine
+        restart: unless-stopped
+        command: ["redis-server", "--appendonly", "yes"]
+        volumes:
+            - redis_data:/data
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 5s
+            timeout: 5s
+            retries: 20
+
+    migrate:
+        image: game-kit-api:local
+        env_file: .env
+        environment:
+            DATABASE_URL: ${DATABASE_URL}
+        depends_on:
+            postgres:
+                condition: service_healthy
+        command: ["pnpm", "--filter", "@game-kit/api", "run", "db:migrate"]
+        restart: "no"
+
+    api:
+        image: game-kit-api:local
+        build:
+            context: ..
+            dockerfile: apps/api/Dockerfile
+            # Lets the build reach a Verdaccio running on the host for @titanium-games/sdk.
+            network: host
+            args:
+                NPM_CONFIG_REGISTRY: ${NPM_CONFIG_REGISTRY:-https://registry.npmjs.org/}
+        restart: unless-stopped
+        env_file: .env
+        depends_on:
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+            migrate:
+                condition: service_completed_successfully
+        healthcheck:
+            test:
+                [
+                    "CMD",
+                    "node",
+                    "-e",
+                    "fetch('http://localhost:8787/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+                ]
+            interval: 10s
+            timeout: 5s
+            retries: 6
+        expose:
+            - "8787"
+
+    web:
+        image: game-kit-web:local
+        build:
+            context: ..
+            dockerfile: apps/web/Dockerfile
+            network: host
+            args:
+                NPM_CONFIG_REGISTRY: ${NPM_CONFIG_REGISTRY:-https://registry.npmjs.org/}
+        restart: unless-stopped
+        healthcheck:
+            test: ["CMD", "wget", "-q", "-O", "-", "http://localhost/"]
+            interval: 10s
+            timeout: 5s
+            retries: 6
+        expose:
+            - "80"
+
+    caddy:
+        image: caddy:2-alpine
+        restart: unless-stopped
+        ports:
+            - "80:80"
+            - "443:443"
+        environment:
+            DOMAIN: ${DOMAIN:-localhost}
+            ACME_EMAIL: ${ACME_EMAIL:-}
+        volumes:
+            - ./Caddyfile:/etc/caddy/Caddyfile:ro
+            - caddy_data:/data
+            - caddy_config:/config
+        depends_on:
+            - api
+            - web
+
+volumes:
+    pg_data:
+    redis_data:
+    caddy_data:
+    caddy_config:

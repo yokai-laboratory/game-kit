@@ -1,0 +1,49 @@
+name: ci
+
+on:
+    push:
+        branches: [main, develop]
+    pull_request:
+
+jobs:
+    # Always-on, dependency-free checks: compose files parse, shell scripts are sane, and the
+    # smart-contracts package stays out of the pnpm workspace.
+    validate:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - name: docker compose config parses
+              run: |
+                  cp deploy/.env.example deploy/.env
+                  docker compose -f deploy/docker-compose.yml --env-file deploy/.env config -q
+                  docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.observability.yml --env-file deploy/.env config -q
+                  docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.anvil.yml --env-file deploy/.env config -q
+            - name: shellcheck scripts
+              run: |
+                  sudo apt-get update && sudo apt-get install -y shellcheck
+                  shellcheck scripts/*.sh
+            - name: smart-contracts has no package.json (stays out of the workspace)
+              run: test ! -f packages/smart-contracts/package.json
+
+    # Typecheck the workspace. Needs the @titanium-games/sdk registry, which isn't on public npm.
+    # Configure a repo variable SDK_REGISTRY (and secret SDK_NPM_TOKEN if it needs auth) pointing at
+    # your registry to enable this job; otherwise it's skipped so the template's CI stays green.
+    typecheck:
+        runs-on: ubuntu-latest
+        if: ${{ vars.SDK_REGISTRY != '' }}
+        steps:
+            - uses: actions/checkout@v4
+            - uses: pnpm/action-setup@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 24
+                  cache: pnpm
+            - name: point @titanium-games scope at the configured registry
+              run: |
+                  echo "@titanium-games:registry=${{ vars.SDK_REGISTRY }}" > .npmrc
+                  if [ -n "${{ secrets.SDK_NPM_TOKEN }}" ]; then
+                    reg="${{ vars.SDK_REGISTRY }}"; host="${reg#http*://}"
+                    echo "//${host}:_authToken=${{ secrets.SDK_NPM_TOKEN }}" >> .npmrc
+                  fi
+            - run: pnpm install --frozen-lockfile=false
+            - run: pnpm typecheck

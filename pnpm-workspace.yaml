@@ -1,0 +1,9 @@
+packages:
+    - "apps/*"
+    - "packages/*"
+    - "games/*"
+
+# better-sqlite3 is NOT used (this template runs on Postgres). The native builds we do allow:
+#   - esbuild: bundled via Vite's optionalDependencies; listing it silences the strictDepBuilds warning.
+allowBuilds:
+    esbuild: true

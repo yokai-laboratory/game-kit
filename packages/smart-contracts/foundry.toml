@@ -1,0 +1,23 @@
+[profile.default]
+src = "src"
+test = "test"
+out = "out"
+libs = ["dependencies"]
+solc = "0.8.35"
+optimizer = true
+optimizer_runs = 200
+via_ir = true
+
+[fmt]
+line_length = 120
+tab_width = 4
+bracket_spacing = false
+
+[soldeer]
+remappings_generate = false
+recursive_deps = false
+
+# Only forge-std is needed for this EXAMPLE scaffold. Add more (e.g. OpenZeppelin) here
+# if your game's custom contracts require them, then run `forge soldeer install`.
+[dependencies]
+forge-std = "1.16.1"

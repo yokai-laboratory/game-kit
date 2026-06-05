@@ -1,0 +1,31 @@
+{
+    "name": "@game-kit/game-coinflip",
+    "version": "0.0.0",
+    "private": true,
+    "type": "module",
+    "description": "Example game: a two-player coin-flip duel. Meant to be scrapped -- copy this folder to build your own game.",
+    "exports": {
+        ".": "./src/index.ts",
+        "./screen": "./src/screen.tsx"
+    },
+    "scripts": {
+        "typecheck": "tsc --noEmit"
+    },
+    "dependencies": {
+        "@game-kit/game-core": "workspace:*",
+        "zod": "4.4.3"
+    },
+    "devDependencies": {
+        "@types/react": "19.2.16",
+        "react": "19.2.7",
+        "typescript": "6.0.3"
+    },
+    "peerDependencies": {
+        "react": "19.2.7"
+    },
+    "peerDependenciesMeta": {
+        "react": {
+            "optional": true
+        }
+    }
+}

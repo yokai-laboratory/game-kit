@@ -1,0 +1,44 @@
+# Caddy: TLS termination + single-origin routing for web + API. Set DOMAIN to your hostname and
+# Caddy fetches a Let's Encrypt cert automatically. With DOMAIN=localhost (the default) Caddy serves
+# a local self-signed cert over https://localhost.
+#
+# Routing (so the browser only ever talks to one origin):
+#   /api/*  -> api  (prefix stripped; the API serves /auth, /rooms, /payments, /me, /presence)
+#   /ws/*   -> api  (NOT stripped; the API serves /ws/room/:id) with websocket upgrade
+#   /*      -> web  (static SPA)
+
+{
+    email {$ACME_EMAIL}
+    # For local testing without real certs, uncomment:
+    # local_certs
+}
+
+{$DOMAIN:localhost} {
+    encode zstd gzip
+
+    handle_path /api/* {
+        reverse_proxy {$API_UPSTREAM:api:8787}
+    }
+
+    handle /ws/* {
+        reverse_proxy {$API_UPSTREAM:api:8787}
+    }
+
+    handle {
+        reverse_proxy {$WEB_UPSTREAM:web:80}
+    }
+}
+
+# ── Horizontal scaling ────────────────────────────────────────────────────────
+# `docker compose up -d --scale api=3` starts 3 API replicas. Docker's DNS returns all of them for
+# the name `api`; to load-balance across them, swap the two `reverse_proxy api:8787` lines above for
+# Caddy dynamic upstreams:
+#
+#   reverse_proxy {
+#       dynamic a { name api; port 8787; refresh 5s }
+#       lb_policy round_robin
+#   }
+#
+# The API tier is stateless (state in Postgres, socket fan-out via Redis), so any replica serves any
+# request/socket. To scale across MACHINES, run this compose on each node pointed at a shared
+# Postgres + Redis, and point an external LB (or this Caddy) at every node.

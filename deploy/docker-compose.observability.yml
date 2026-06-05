@@ -1,0 +1,32 @@
+# Optional overlay: an all-in-one Grafana LGTM stack (Loki/Grafana/Tempo/Mimir + an OTel collector)
+# for when you want dashboards/traces. ~1-2GB RAM, so it's opt-in -- the base stack ships only
+# structured logs (docker logs) + /health + /ready.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d
+#
+# Grafana: http://<host>:3000 (anonymous viewer by default in this image).
+#
+# The base API does not yet emit OTel spans -- it logs JSON to stdout. To light up traces/metrics,
+# add the OpenTelemetry Node SDK to apps/api and point it at OTEL_EXPORTER_OTLP_ENDPOINT (already
+# injected below). Logs can be shipped by pointing your container log driver at Loki, or adding a
+# promtail/alloy sidecar. This overlay gives you the destination; instrumentation is the next step.
+
+name: game-kit
+
+services:
+    lgtm:
+        image: grafana/otel-lgtm:latest
+        restart: unless-stopped
+        ports:
+            - "3000:3000" # Grafana UI
+        expose:
+            - "4317" # OTLP gRPC
+            - "4318" # OTLP HTTP
+
+    api:
+        environment:
+            OTEL_EXPORTER_OTLP_ENDPOINT: http://lgtm:4318
+            OTEL_SERVICE_NAME: game-kit-api
+        depends_on:
+            lgtm:
+                condition: service_started

@@ -1,0 +1,219 @@
+:root {
+    --bg: #0e1117;
+    --panel: #171c26;
+    --panel-2: #1f2633;
+    --text: #e6e9ef;
+    --muted: #8b94a7;
+    --accent: #5b8cff;
+    --win: #3ecf8e;
+    --loss: #ff6b6b;
+    --border: #2a3140;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+}
+
+.shell {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 0 16px 64px;
+}
+
+.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
+}
+.brand {
+    font-weight: 700;
+    color: var(--text);
+    text-decoration: none;
+    font-size: 18px;
+}
+.topbar-right {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.muted {
+    color: var(--muted);
+}
+.small {
+    font-size: 13px;
+}
+.error {
+    color: var(--loss);
+}
+.empty {
+    padding: 48px 0;
+    text-align: center;
+    color: var(--muted);
+}
+
+a.cta,
+button.cta {
+    display: inline-block;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+}
+button.cta:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+button {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 12px;
+    cursor: pointer;
+}
+button.link {
+    background: none;
+    border: none;
+    color: var(--accent);
+    padding: 0;
+}
+
+.landing {
+    text-align: center;
+    padding-top: 64px;
+}
+.landing h1 {
+    font-size: 40px;
+    margin-bottom: 8px;
+}
+.landing p {
+    max-width: 520px;
+    margin: 0 auto 28px;
+}
+
+.panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+.panel h2,
+.panel h3 {
+    margin-top: 0;
+}
+.panel label {
+    display: block;
+    margin: 12px 0 4px;
+    font-size: 14px;
+    color: var(--muted);
+}
+.panel input,
+.panel select {
+    width: 100%;
+    padding: 8px 10px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 15px;
+}
+
+.room-list,
+.history {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.room-list li,
+.history li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+}
+.history li {
+    gap: 8px;
+}
+
+.outcome {
+    text-transform: uppercase;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+.outcome.win {
+    background: rgba(62, 207, 142, 0.15);
+    color: var(--win);
+}
+.outcome.loss {
+    background: rgba(255, 107, 107, 0.15);
+    color: var(--loss);
+}
+.outcome.draw {
+    background: rgba(139, 148, 167, 0.15);
+    color: var(--muted);
+}
+
+.room-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+/* coin-flip screen */
+.coinflip .scoreline {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    font-size: 17px;
+}
+.flash {
+    text-align: center;
+    font-size: 22px;
+    font-weight: 700;
+    padding: 16px;
+    color: var(--accent);
+}
+.pick-buttons {
+    display: flex;
+    gap: 12px;
+    margin: 12px 0;
+}
+.pick {
+    flex: 1;
+    padding: 18px;
+    font-size: 18px;
+}
+.pick.selected {
+    border-color: var(--accent);
+    background: rgba(91, 140, 255, 0.15);
+}
+.rounds {
+    margin-top: 16px;
+    color: var(--muted);
+    font-size: 13px;
+}
+.result h3 {
+    text-align: center;
+}

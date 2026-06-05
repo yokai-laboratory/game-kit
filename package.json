@@ -1,0 +1,23 @@
+{
+    "name": "game-kit",
+    "private": true,
+    "packageManager": "pnpm@11.1.2",
+    "description": "Full-stack web3 game template built on the Titanium Games (TTG) payment + identity rails. Ships a coin-flip duel example you swap out for your own game.",
+    "engines": {
+        "node": ">=24"
+    },
+    "scripts": {
+        "dev": "turbo run dev --parallel",
+        "build": "turbo run build",
+        "typecheck": "turbo run typecheck",
+        "lint": "turbo run lint",
+        "db:migrate": "pnpm --filter @game-kit/api run db:migrate",
+        "setup": "tsx scripts/setup.ts"
+    },
+    "devDependencies": {
+        "@types/node": "25.9.1",
+        "tsx": "4.22.4",
+        "turbo": "2.9.16",
+        "typescript": "6.0.3"
+    }
+}

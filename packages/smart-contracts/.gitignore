@@ -1,0 +1,11 @@
+# Foundry build + run artifacts (the repo root .gitignore also covers most of these;
+# this file is defensive so the package stays clean if it is ever moved/extracted).
+out/
+cache/
+broadcast/
+
+# Soldeer-installed dependencies (reproducible from foundry.toml + soldeer.lock).
+dependencies/
+
+# In case you switch to `forge install` (git submodules) instead of soldeer.
+lib/

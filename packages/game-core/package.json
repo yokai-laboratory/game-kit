@@ -1,0 +1,21 @@
+{
+    "name": "@game-kit/game-core",
+    "version": "0.0.0",
+    "private": true,
+    "type": "module",
+    "description": "Isomorphic core for game-kit: the GameModule interface every game implements, plus the client/server wire protocol. Depends on nothing but zod -- no node, no react.",
+    "main": "./src/index.ts",
+    "types": "./src/index.ts",
+    "exports": {
+        ".": "./src/index.ts"
+    },
+    "scripts": {
+        "typecheck": "tsc --noEmit"
+    },
+    "dependencies": {
+        "zod": "4.4.3"
+    },
+    "devDependencies": {
+        "typescript": "6.0.3"
+    }
+}
