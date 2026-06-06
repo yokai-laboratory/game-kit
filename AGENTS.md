@@ -23,6 +23,10 @@ built to be read by agents:
 Rule of thumb: the SDK is the integration surface (this kit uses it); reach for raw HTTP / OpenAPI only
 for something the SDK doesn't cover.
 
+**Kit internals.** Before changing anything, read [`docs/HOW-IT-WORKS.md`](docs/HOW-IT-WORKS.md) — the
+architecture, the request lifecycle, the two payment shapes (pot stake vs. one-way purchase), and the
+build-a-game workflow. It's the map for everything below.
+
 ## The one big idea: the seam
 
 Everything splits into **primitives you keep** and **a game you swap**.
@@ -88,6 +92,13 @@ networking (`network: host` on the build) — keep Verdaccio reachable during `d
 - **Money is TTG's.** Stakes/pots/payouts go through the TTG SDK (`charge`, `distributePot`,
   presence). This repo never holds funds. `packages/smart-contracts` is an *optional* scaffold for
   custom on-chain logic, not the payment path.
+- **Two payment shapes, one path.** A *pot stake* (rooms) escrows money and pays it back on settle; a
+  *one-way purchase* (the store — `payments/points.ts`, `POST /payments/purchase`) charges with no pot
+  and grants app state (the demo credits `users.points`). Both record an `oauth_payment_intent` and
+  funnel completion through `onIntentResolved` in `game/engine.ts`. To sell in-game inventory, copy
+  the purchase flow and change what `creditPurchaseIfCompleted` writes — don't invent a new money
+  path. Crediting is idempotent (a guarded `UPDATE`); keep it that way (the events socket, poll
+  backstop, and return-page sync can all observe the same completion).
 - **Concurrency.** Moves apply inside a row-locked transaction (`SELECT … FOR UPDATE`) so two moves
   serialize on the room row even across replicas.
 

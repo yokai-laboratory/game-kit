@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
   provider_sub  text NOT NULL UNIQUE,
   display_name  text NOT NULL,
   email         text,
+  points        integer NOT NULL DEFAULT 0,
   created_at    bigint NOT NULL
 );
 
@@ -55,7 +56,8 @@ CREATE INDEX IF NOT EXISTS rooms_guest_idx ON rooms(guest_user_id);
 
 CREATE TABLE IF NOT EXISTS oauth_payment_intents (
   id               text PRIMARY KEY,
-  room_id          text NOT NULL REFERENCES rooms(id),
+  kind             text NOT NULL DEFAULT 'stake',
+  room_id          text REFERENCES rooms(id),
   user_id          text NOT NULL REFERENCES users(id),
   status           text NOT NULL DEFAULT 'pending',
   payment_id       text,
@@ -63,6 +65,8 @@ CREATE TABLE IF NOT EXISTS oauth_payment_intents (
   usd_cents        integer NOT NULL,
   chain            text NOT NULL,
   idempotency_key  text,
+  credit_points    integer,
+  points_credited  boolean NOT NULL DEFAULT false,
   created_at       bigint NOT NULL,
   resolved_at      bigint,
   expires_at       bigint NOT NULL
@@ -70,4 +74,13 @@ CREATE TABLE IF NOT EXISTS oauth_payment_intents (
 CREATE INDEX IF NOT EXISTS opi_room_idx ON oauth_payment_intents(room_id);
 CREATE INDEX IF NOT EXISTS opi_user_idx ON oauth_payment_intents(user_id, created_at);
 CREATE INDEX IF NOT EXISTS opi_status_idx ON oauth_payment_intents(status, expires_at);
+
+-- One-way purchases (points/inventory demo). Expressed as idempotent ALTERs so a database created by
+-- an earlier version of this template picks up the new columns on the next \`pnpm db:migrate\` without
+-- a destructive rebuild; on a fresh deploy the CREATE TABLEs above already match and these are no-ops.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS points integer NOT NULL DEFAULT 0;
+ALTER TABLE oauth_payment_intents ALTER COLUMN room_id DROP NOT NULL;
+ALTER TABLE oauth_payment_intents ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'stake';
+ALTER TABLE oauth_payment_intents ADD COLUMN IF NOT EXISTS credit_points integer;
+ALTER TABLE oauth_payment_intents ADD COLUMN IF NOT EXISTS points_credited boolean NOT NULL DEFAULT false;
 `;

@@ -82,6 +82,63 @@ export function useCharge(): { status: ChargeStatus; charge: (roomId: string) =>
     return { status, charge, reset };
 }
 
+// Same flow as useCharge, but for a one-way store purchase (POST /payments/purchase with a packId).
+// The response shape is identical -- completed (offline auto-charge: points already credited),
+// redirect (confirm on TTG, points credited on return), or monthly_limit_exceeded -- so the caller
+// reuses ChargeStatus. On `completed` the caller should refresh the user (the balance changed).
+export function usePurchase(): { status: ChargeStatus; purchase: (packId: string) => Promise<void>; reset: () => void } {
+    const [status, setStatus] = useState<ChargeStatus>({ kind: "idle" });
+
+    const purchase = useCallback(async (packId: string) => {
+        setStatus({ kind: "requesting" });
+        try {
+            const res = await fetch("/api/payments/purchase", {
+                method: "POST",
+                credentials: "include",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ packId }),
+            });
+            if (res.status === 402) {
+                const data = (await res.json()) as Extract<ChargeResponse, { status: "monthly_limit_exceeded" }>;
+                setStatus({
+                    kind: "limit_exceeded",
+                    currentLimitCents: data.currentLimitCents,
+                    monthSpentCents: data.monthSpentCents,
+                    attemptedUsdCents: data.attemptedUsdCents,
+                    redirectUrl: data.redirectUrl,
+                });
+                return;
+            }
+            if (!res.ok) {
+                const body = (await res.json().catch(() => ({}))) as { error?: string; code?: string };
+                throw new Error(body.code ?? body.error ?? `purchase_failed_${res.status}`);
+            }
+            const data = (await res.json()) as ChargeResponse;
+            if (data.status === "completed") {
+                setStatus({ kind: "completed", intentId: data.intentId });
+                return;
+            }
+            if (data.status === "redirect") {
+                setStatus({ kind: "redirecting", intentId: data.intentId, redirectUrl: data.redirectUrl });
+                window.location.href = data.redirectUrl;
+                return;
+            }
+            setStatus({
+                kind: "limit_exceeded",
+                currentLimitCents: data.currentLimitCents,
+                monthSpentCents: data.monthSpentCents,
+                attemptedUsdCents: data.attemptedUsdCents,
+                redirectUrl: data.redirectUrl,
+            });
+        } catch (e) {
+            setStatus({ kind: "error", message: e instanceof Error ? e.message : "purchase failed" });
+        }
+    }, []);
+
+    const reset = useCallback(() => setStatus({ kind: "idle" }), []);
+    return { status, purchase, reset };
+}
+
 // Used by /payment-return: ask the API to poll TTG once for the canonical intent state.
 export async function syncIntent(intentId: string): Promise<{
     intent: { id: string; roomId: string; status: "pending" | "completed" | "denied" | "expired" };

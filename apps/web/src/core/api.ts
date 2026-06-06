@@ -14,11 +14,23 @@ async function json<T>(res: Response): Promise<T> {
 }
 
 export interface Me {
-    user: { id: string; displayName: string; email: string | null } | null;
+    user: { id: string; displayName: string; email: string | null; points: number } | null;
 }
 
 export async function getMe(): Promise<Me> {
     return json<Me>(await fetch(`${BASE}/me`, { credentials: "include" }));
+}
+
+export interface PointPack {
+    id: string;
+    points: number;
+    priceEth: string;
+    title: string;
+}
+
+// The store: current points balance + the buyable packs (catalog defined server-side).
+export async function getPoints(): Promise<{ balance: number; packs: PointPack[] }> {
+    return json(await fetch(`${BASE}/payments/points`, { credentials: "include" }));
 }
 
 export async function logout(): Promise<void> {

@@ -15,7 +15,8 @@ import type {
 } from "@game-kit/game-core";
 import { db, schema } from "../db/client.js";
 import { logger } from "../logger.js";
-import { getCompletedStakeIntents } from "../payments/intents.js";
+import { getCompletedStakeIntents, type IntentRow } from "../payments/intents.js";
+import { creditPurchaseIfCompleted } from "../payments/points.js";
 import { broadcastCompleted, broadcastEvent, broadcastState } from "../realtime/hub.js";
 import { getGameModule } from "./registry.js";
 import { cryptoRng } from "./rng.js";
@@ -175,6 +176,22 @@ export async function advanceRoomAfterStakes(roomId: string): Promise<boolean> {
     }
 
     return false;
+}
+
+// Single entry point for "a payment intent just reached a terminal state". Every completion path --
+// the synchronous charge/purchase response, the TTG events socket, the poll backstop, the
+// return-page sync -- funnels the resolved intent row through here so the two intent kinds share one
+// reaction: a completed stake advances its room; a completed purchase credits its points. Both
+// branches are idempotent, so duplicate observations (multi-replica sockets, poll overlap) are safe.
+export async function onIntentResolved(intent: IntentRow): Promise<void> {
+    if (intent.status !== "completed") return;
+    if (intent.kind === "purchase") {
+        await creditPurchaseIfCompleted(intent.id);
+        return;
+    }
+    if (!intent.roomId) return;
+    const advanced = await advanceRoomAfterStakes(intent.roomId);
+    if (advanced) await broadcastState(intent.roomId);
 }
 
 // Apply a player's move. Wrapped in a row-locked transaction (SELECT ... FOR UPDATE) so concurrent

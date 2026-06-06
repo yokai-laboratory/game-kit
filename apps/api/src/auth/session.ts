@@ -12,6 +12,7 @@ export interface SessionUser {
     id: string;
     displayName: string;
     email: string | null;
+    points: number;
 }
 
 // In production the app is served same-origin behind the reverse proxy (web + /api under one
@@ -56,6 +57,7 @@ export async function loadSessionUser(c: Context): Promise<SessionUser | null> {
             userId: schema.users.id,
             displayName: schema.users.displayName,
             email: schema.users.email,
+            points: schema.users.points,
         })
         .from(schema.sessions)
         .innerJoin(schema.users, eq(schema.users.id, schema.sessions.userId))
@@ -67,7 +69,7 @@ export async function loadSessionUser(c: Context): Promise<SessionUser | null> {
         await db.delete(schema.sessions).where(eq(schema.sessions.id, id));
         return null;
     }
-    return { id: found.userId, displayName: found.displayName, email: found.email };
+    return { id: found.userId, displayName: found.displayName, email: found.email, points: found.points };
 }
 
 export async function destroySession(c: Context): Promise<void> {

@@ -5,6 +5,7 @@ interface User {
     id: string;
     displayName: string;
     email: string | null;
+    points: number;
 }
 
 interface AuthContextValue {

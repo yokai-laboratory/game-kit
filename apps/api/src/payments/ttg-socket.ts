@@ -1,6 +1,5 @@
 import { logger } from "../logger.js";
-import { advanceRoomAfterStakes } from "../game/engine.js";
-import { broadcastState } from "../realtime/hub.js";
+import { onIntentResolved } from "../game/engine.js";
 import { applyIntentTransition, getIntent } from "./intents.js";
 import { ttgClient } from "./ttg-client.js";
 
@@ -72,9 +71,7 @@ export async function handleWebhookBody(body: WebhookBody): Promise<void> {
         txHash: intent.txHash,
         resolvedAt: Date.now(),
     });
-    const target = updated ?? existing;
-    if (target.status === "completed") {
-        const advanced = await advanceRoomAfterStakes(target.roomId);
-        if (advanced) await broadcastState(target.roomId);
-    }
+    // Stake completion advances the room; purchase completion credits points. onIntentResolved
+    // dispatches on `kind` and is a no-op for non-completed states.
+    await onIntentResolved(updated ?? existing);
 }

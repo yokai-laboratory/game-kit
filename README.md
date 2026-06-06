@@ -47,6 +47,9 @@ A game is a `GameModule<State, Move, Config>` (pure, isomorphic logic) plus a Re
 generic engine drives any module through the lifecycle — **create → stake → start → moves → complete
 → settle** — without knowing the rules.
 
+> **New here? Read [`docs/HOW-IT-WORKS.md`](docs/HOW-IT-WORKS.md)** — the architecture, the request
+> lifecycle, the two payment shapes, and the "tell an agent to build my game" workflow, end to end.
+
 ## Quickstart (local)
 
 Prereqs: Node 24, pnpm 11, Docker. **And** the `@titanium-games/sdk` registry — see
@@ -107,8 +110,13 @@ games/
 deploy/          docker-compose (+ observability/anvil/dev overlays), Caddyfile, env example
 scripts/         setup.ts (TTG keys), dev.sh, preflight-vps.sh
 skills/          agent runbooks: setup, deploy
+docs/            HOW-IT-WORKS.md — architecture deep-dive + the build-a-game agent workflow
 AGENTS.md        the agent-first contract for this repo
 ```
+
+The web app also ships a **store** (`apps/web/src/routes/Store.tsx`) demonstrating one-way purchases —
+buy point packs with a TTG charge; balance shows in the top bar. Keep it as a reference for selling
+in-game inventory, or delete it alongside coinflip if your game doesn't need a store.
 
 ## SDK prerequisite
 
@@ -127,15 +135,22 @@ networking; keep it up during `docker compose build`.
 
 ## How payments work (at a glance)
 
-This repo never holds funds. Stakes flow through TTG:
+This repo never holds funds. Money always flows through TTG, in **two shapes** that share all the same
+plumbing (intent mirror, events socket, poll backstop):
 
-1. A room mints a CreditVault **pot**; each player stakes into it via TTG `charge` (silent if the
-   player's browser is present + offline-charge is enabled, otherwise a TTG confirm redirect).
-2. When the game completes, the engine derives a settlement from the module's `outcome()` and calls
-   TTG `distributePot` — winner-takes-pot by default, split-refund on a draw. Fail-soft.
+- **Pot stake (rooms).** A room mints a CreditVault **pot**; each player stakes into it via TTG
+  `charge` (silent if the player's browser is present + offline-charge is enabled, otherwise a TTG
+  confirm redirect). On completion the engine derives a settlement from the module's `outcome()` and
+  calls TTG `distributePot` — winner-takes-pot by default, split-refund on a draw. Fail-soft.
+- **One-way purchase (the store).** A single `charge` with **no pot** — nothing is escrowed or
+  refunded. On completion the server grants something in app state; the demo credits **points**
+  (`users.points`, shown in the top bar). This is the pattern for selling in-game currency or
+  inventory — see [`apps/api/src/payments/points.ts`](apps/api/src/payments/points.ts),
+  `POST /payments/purchase`, and [`apps/web/src/routes/Store.tsx`](apps/web/src/routes/Store.tsx).
+  Both shapes funnel completions through one idempotent dispatcher (`onIntentResolved`).
 
 The optional `packages/smart-contracts` scaffold is for games that need their **own** on-chain logic
-beyond TTG's pots — not the money path.
+beyond TTG's pots — not the money path. Full walkthrough: [`docs/HOW-IT-WORKS.md`](docs/HOW-IT-WORKS.md).
 
 ## License
 

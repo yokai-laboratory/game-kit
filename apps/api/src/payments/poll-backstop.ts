@@ -1,6 +1,5 @@
 import { loadAccessTokenForUser } from "../auth/oauth.js";
-import { advanceRoomAfterStakes } from "../game/engine.js";
-import { broadcastState } from "../realtime/hub.js";
+import { onIntentResolved } from "../game/engine.js";
 import { logger } from "../logger.js";
 import { applyIntentTransition, listExpiredPendingIntents } from "./intents.js";
 import { getIntentStatus, TtgError } from "./oauth-client.js";
@@ -60,10 +59,7 @@ export function startPollBackstop(): PollBackstop {
                 txHash: upstream.txHash,
                 resolvedAt: Date.now(),
             });
-            if (updated?.status === "completed") {
-                const advanced = await advanceRoomAfterStakes(updated.roomId);
-                if (advanced) await broadcastState(updated.roomId);
-            }
+            if (updated) await onIntentResolved(updated);
         }
     }
 }

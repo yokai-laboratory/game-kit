@@ -10,6 +10,9 @@ export function TopBar(): React.JSX.Element {
             </Link>
             {user && (
                 <div className="topbar-right">
+                    <Link to="/store" className="points" title="Buy points">
+                        ◆ {user.points}
+                    </Link>
                     <span className="muted">{user.displayName}</span>
                     <button className="link" onClick={() => void logout()}>
                         Sign out

@@ -1,16 +1,19 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useAuth } from "../core/auth";
 import { syncIntent } from "../core/use-charge";
 
-// Landing page after TTG's /pay redirect flow. The room socket + poll backstop are the primary path
-// to "stake completed"; this page just nudges TTG once (if we know the intent id) and bounces the
-// user back into their room.
+// Landing page after TTG's /pay redirect flow. The events socket + poll backstop are the primary path
+// to "intent completed"; this page just nudges TTG once (if we know the intent id) and bounces the
+// user back to where they were — their room for a stake, the store for a purchase.
 export function PaymentReturn(): React.JSX.Element {
     const [params] = useSearchParams();
     const navigate = useNavigate();
+    const { refresh } = useAuth();
     const [msg, setMsg] = useState("Finishing up…");
     const roomId = params.get("roomId");
     const intentId = params.get("intentId");
+    const isStore = params.get("store") === "1";
 
     useEffect(() => {
         let active = true;
@@ -26,6 +29,10 @@ export function PaymentReturn(): React.JSX.Element {
             if (roomId) {
                 setMsg("Returning to your room…");
                 setTimeout(() => navigate(`/room/${roomId}`), 600);
+            } else if (isStore) {
+                // A purchase just settled; pull the new balance before landing back on the store.
+                await refresh();
+                navigate("/store");
             } else {
                 navigate("/lobby");
             }
@@ -34,7 +41,7 @@ export function PaymentReturn(): React.JSX.Element {
         return () => {
             active = false;
         };
-    }, [intentId, roomId, navigate]);
+    }, [intentId, roomId, isStore, navigate, refresh]);
 
     return (
         <main className="room">

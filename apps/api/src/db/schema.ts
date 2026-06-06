@@ -1,4 +1,4 @@
-import { bigint, index, integer, jsonb, pgTable, text } from "drizzle-orm/pg-core";
+import { bigint, boolean, index, integer, jsonb, pgTable, text } from "drizzle-orm/pg-core";
 import type { RoomResult, RoomStatus, Seat } from "@game-kit/game-core";
 
 // Postgres schema (Drizzle). Timestamps are epoch-ms stored as bigint(mode:number) so the code
@@ -12,6 +12,10 @@ export const users = pgTable("users", {
     providerSub: text("provider_sub").notNull().unique(),
     displayName: text("display_name").notNull(),
     email: text("email"),
+    // In-game points balance. A demo of soft currency / inventory bought via one-way TTG charges
+    // (see the store purchase flow). Lives here, not on TTG: TTG custodies real money; points are
+    // app state. Real inventory would be its own table -- one integer keeps the example legible.
+    points: integer("points").notNull().default(0),
     createdAt: bigint("created_at", { mode: "number" }).notNull(),
 });
 
@@ -75,16 +79,21 @@ export const rooms = pgTable(
     ],
 );
 
-// API-side mirror of TTG's oauth_payment_intent for stakes this game initiated. Cached so the
-// engine can answer "has user X paid for room Y?" without round-tripping TTG. Status is driven by
-// TTG's push (events socket) with the poll backstop as recovery.
+// API-side mirror of TTG's oauth_payment_intent for every charge this game initiates. Cached so the
+// engine can answer "has user X paid for room Y?" (or "has this purchase settled?") without
+// round-tripping TTG. Status is driven by TTG's push (events socket) with the poll backstop as
+// recovery. Two shapes share this table, told apart by `kind`:
+//   - "stake"    -> a pot stake; `roomId` is set; completion advances the room.
+//   - "purchase" -> a one-way store buy; `roomId` is null; completion credits `creditPoints`.
 export const oauthPaymentIntents = pgTable(
     "oauth_payment_intents",
     {
         id: text("id").primaryKey(),
-        roomId: text("room_id")
-            .notNull()
-            .references(() => rooms.id),
+        // Discriminator for what a completed intent should do. Defaults to "stake" so existing rows
+        // (and the room-stake path) are unchanged.
+        kind: text("kind").$type<"stake" | "purchase">().notNull().default("stake"),
+        // Set for stakes, null for one-way purchases.
+        roomId: text("room_id").references(() => rooms.id),
         userId: text("user_id")
             .notNull()
             .references(() => users.id),
@@ -94,6 +103,11 @@ export const oauthPaymentIntents = pgTable(
         usdCents: integer("usd_cents").notNull(),
         chain: text("chain").notNull(),
         idempotencyKey: text("idempotency_key"),
+        // Purchases only: points to grant on completion, and a once-only guard so the credit is
+        // applied exactly once no matter which path (charge response, events socket, poll, sync)
+        // observes the completion first.
+        creditPoints: integer("credit_points"),
+        pointsCredited: boolean("points_credited").notNull().default(false),
         createdAt: bigint("created_at", { mode: "number" }).notNull(),
         resolvedAt: bigint("resolved_at", { mode: "number" }),
         expiresAt: bigint("expires_at", { mode: "number" }).notNull(),
