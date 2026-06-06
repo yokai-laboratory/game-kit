@@ -4,6 +4,13 @@ A **full-stack web3 game template** built on the [Titanium Games](https://github
 (TTG) identity + payment rails. Clone it, swap the example game for yours, and deploy to a small VPS
 with Docker Compose.
 
+> **Platform docs:** the integration this kit demonstrates is documented in full at
+> **[titaniumgames.gg/docs](https://titaniumgames.gg/docs)** (build-a-game guides),
+> **[/sdk](https://titaniumgames.gg/sdk)** (the typed SDK reference), and
+> **[/reference](https://titaniumgames.gg/reference)** (raw HTTP / OpenAPI). Building with an agent?
+> Point it at **[titaniumgames.gg/llms.txt](https://titaniumgames.gg/llms.txt)** — a machine-readable
+> index of all of the above, in build order.
+
 It ships a working example — a **coin-flip duel** — that exercises every primitive (TTG sign-in,
 staking into an on-chain pot, real-time play, winner-takes-pot settlement). The game logic is
 designed to be **thrown away**; the primitives, infra, and onboarding are what you keep.

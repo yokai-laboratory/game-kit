@@ -5,6 +5,24 @@ throwaway example game (coin-flip duel). Your job as an agent is usually one of:
 game** by replacing the example, **(b) set up TTG keys**, or **(c) deploy to a VPS**. This file is
 the contract for doing that without breaking the reusable parts.
 
+## Platform documentation (TTG)
+
+This kit is a worked example of the Titanium Games platform flows — auth, payments, presence. When you
+need the **why** behind the integration (not just the kit's wiring), read the platform docs. They are
+built to be read by agents:
+
+- **Agents start here:** [`https://titaniumgames.gg/llms.txt`](https://titaniumgames.gg/llms.txt) — a
+  machine-readable index of every guide, the SDK reference, the OpenAPI document, and this starter, in
+  build order. Fetch it first to orient.
+- **Developer guides** (conceptual, build-a-game order): `https://titaniumgames.gg/docs` — register an
+  app → authentication → payments → webhooks/realtime → presence → ship.
+- **SDK reference** (the typed functions this kit calls): `https://titaniumgames.gg/sdk`.
+- **API reference / raw HTTP:** `https://titaniumgames.gg/reference` (interactive) and
+  `https://titaniumgames.gg/openapi.json` (the document the SDK is generated from).
+
+Rule of thumb: the SDK is the integration surface (this kit uses it); reach for raw HTTP / OpenAPI only
+for something the SDK doesn't cover.
+
 ## The one big idea: the seam
 
 Everything splits into **primitives you keep** and **a game you swap**.

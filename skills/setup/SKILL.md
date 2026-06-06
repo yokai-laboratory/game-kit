@@ -8,6 +8,11 @@ description: Walk the user through wiring Titanium Games (TTG) app keys + redire
 Goal: end with valid `apps/api/.env` (local dev) and `deploy/.env` (docker stack), an OAuth app
 registered on TTG with the correct redirect URI, and a verified sign-in.
 
+> Reference: app registration + OAuth are documented at
+> [`titaniumgames.gg/docs/developer-console`](https://titaniumgames.gg/docs/developer-console) and
+> [`/docs/authentication`](https://titaniumgames.gg/docs/authentication). Agents: the full index is at
+> [`titaniumgames.gg/llms.txt`](https://titaniumgames.gg/llms.txt).
+
 ## 0. Gather inputs
 Ask the user (or read from context) for:
 - **TTG_API_ORIGIN** — base URL of the Titanium Games API.
