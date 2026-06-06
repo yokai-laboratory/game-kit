@@ -23,7 +23,8 @@ services:
             POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gamekit}
             POSTGRES_DB: ${POSTGRES_DB:-gamekit}
         volumes:
-            - pg_data:/var/lib/postgresql/data
+            # Postgres 18+ wants the data volume at /var/lib/postgresql (not /data).
+            - pg_data:/var/lib/postgresql
         healthcheck:
             test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gamekit} -d ${POSTGRES_DB:-gamekit}"]
             interval: 5s

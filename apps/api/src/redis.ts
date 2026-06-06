@@ -1,4 +1,4 @@
-import Redis from "ioredis";
+import { Redis } from "ioredis";
 import { env } from "./env.js";
 
 // Redis is the fan-out backbone that makes the API tier horizontally scalable: WebSocket clients
