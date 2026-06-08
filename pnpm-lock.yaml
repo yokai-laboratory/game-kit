@@ -37,7 +37,7 @@ importers:
         version: 1.3.1(@hono/node-server@2.0.4(hono@4.12.23))(hono@4.12.23)
       '@titanium-games/sdk':
         specifier: 0.2.0
-        version: 0.2.0(hono@4.12.23)(react@19.2.7)
+        version: 0.2.0(hono@4.12.23)
       dotenv:
         specifier: 17.4.2
         version: 17.4.2
@@ -92,7 +92,7 @@ importers:
         version: link:../../packages/game-core
       '@titanium-games/sdk':
         specifier: 0.2.0
-        version: 0.2.0(hono@4.12.23)(react@19.2.7)
+        version: 0.2.0(react@19.2.7)
       react:
         specifier: 19.2.7
         version: 19.2.7
@@ -738,10 +738,10 @@ packages:
     resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
 
   '@titanium-games/sdk@0.2.0':
-    resolution: {integrity: sha512-iEkYQyjlFTXWhMmXGk1hiAkkB7D/uP4SbuFOhVBD1Q2VzaQ6wjZQkAOh77zLEC2OgdEJXprfR5JGFzsjprE+cA==}
+    resolution: {integrity: sha512-Vhaej3NTqmFuhkq6Im9frHGhde8PxO+Hh+JMRHnstgo20SIa3jitA6KBY1AI6TRMchURIHKwojZmRxevQgrQBQ==}
     peerDependencies:
-      hono: 4.12.23
-      react: 19.2.7
+      hono: 4.12.18
+      react: 19.2.6
     peerDependenciesMeta:
       hono:
         optional: true
@@ -1604,11 +1604,16 @@ snapshots:
 
   '@rolldown/pluginutils@1.0.1': {}
 
-  '@titanium-games/sdk@0.2.0(hono@4.12.23)(react@19.2.7)':
+  '@titanium-games/sdk@0.2.0(hono@4.12.23)':
     dependencies:
       zod: 4.4.3
     optionalDependencies:
       hono: 4.12.23
+
+  '@titanium-games/sdk@0.2.0(react@19.2.7)':
+    dependencies:
+      zod: 4.4.3
+    optionalDependencies:
       react: 19.2.7
 
   '@turbo/darwin-64@2.9.16':
