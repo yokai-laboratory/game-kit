@@ -8,6 +8,8 @@ export interface RoomConnection {
     view: RoomView | null;
     error: string | null;
     submitMove: (move: unknown) => void;
+    // Realtime games: high-frequency input; state arrives with the next server tick.
+    submitInput: (input: unknown) => void;
     lastEvent: GameEvent | null;
     // Relay the TTG presence widget's minted playSessionId to the server (it drives the game half).
     relayPresence: (playSessionId: string) => void;
@@ -87,6 +89,13 @@ export function useRoomSocket(roomId: string | null): RoomConnection {
         ws.send(JSON.stringify(msg));
     };
 
+    const submitInput = (input: unknown) => {
+        const ws = wsRef.current;
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        const msg: ClientMessage = { type: "input", input };
+        ws.send(JSON.stringify(msg));
+    };
+
     const relayPresence = (playSessionId: string) => {
         pendingPresenceRef.current = playSessionId;
         const ws = wsRef.current;
@@ -96,5 +105,5 @@ export function useRoomSocket(roomId: string | null): RoomConnection {
         }
     };
 
-    return { view, error, submitMove, lastEvent, relayPresence, presenceActive };
+    return { view, error, submitMove, submitInput, lastEvent, relayPresence, presenceActive };
 }

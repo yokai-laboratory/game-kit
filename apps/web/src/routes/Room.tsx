@@ -12,7 +12,9 @@ function usd(cents: number): string {
 
 export function Room(): React.JSX.Element {
     const { id } = useParams<{ id: string }>();
-    const { view, error, submitMove, lastEvent, relayPresence, presenceActive } = useRoomSocket(id ?? null);
+    const { view, error, submitMove, submitInput, lastEvent, relayPresence, presenceActive } = useRoomSocket(
+        id ?? null,
+    );
     const { status: chargeStatus, charge } = useCharge();
     const [preflight, setPreflight] = useState<Preflight | null>(null);
 
@@ -100,6 +102,7 @@ export function Room(): React.JSX.Element {
                         status={view.room.status}
                         result={view.room.result}
                         submitMove={submitMove}
+                        submitInput={submitInput}
                         lastEvent={lastEvent}
                     />
                 ) : (

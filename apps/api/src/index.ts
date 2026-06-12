@@ -11,7 +11,8 @@ import { paymentsRoutes } from "./payments/routes.js";
 import { startTtgEventsSocket } from "./payments/ttg-socket.js";
 import { startPollBackstop } from "./payments/poll-backstop.js";
 import { roomWsHandler } from "./game/ws.js";
-import { buildRoomView } from "./game/engine.js";
+import { buildRoomView, setRealtimeWaker } from "./game/engine.js";
+import { ensureTicking } from "./game/ticker.js";
 import { setViewBuilder, startRealtimeHub } from "./realtime/hub.js";
 import { pingDb } from "./db/client.js";
 import { pingRedis } from "./redis.js";
@@ -61,6 +62,9 @@ app.get(
 // replica can deliver room updates to its local sockets.
 setViewBuilder(buildRoomView);
 startRealtimeHub();
+// Realtime games: the engine wakes the tick loop when a room flips in_progress (injected here to
+// avoid an engine <-> ticker import cycle).
+setRealtimeWaker(ensureTicking);
 
 const server = serve({ fetch: app.fetch, port: env.API_PORT }, (info) => {
     logger.info({ port: info.port, env: env.NODE_ENV }, "game-kit api listening");

@@ -48,6 +48,11 @@ export interface MoveContext {
     rng: Rng;
 }
 
+export interface TickContext {
+    roomId: string;
+    rng: Rng;
+}
+
 export type ValidationResult = { ok: true } | { ok: false; code: string };
 
 export type Outcome =
@@ -75,17 +80,29 @@ export interface ApplyResult<State> {
     events?: GameEvent[];
 }
 
-export interface GameModule<State, Move, Config = Record<string, never>> {
+export interface GameModule<State, Move, Config = Record<string, never>, Input = unknown> {
     readonly id: string;
     readonly displayName: string;
     readonly description: string;
 
+    // Realtime declaration (optional). Declaring this flips the engine into a server tick loop:
+    // it calls `tick()` at the declared rate (capped at 20Hz by the engine) while the room is
+    // in_progress, and routes `input` socket messages to `applyInput()`. Turn-based modules omit
+    // it and nothing changes. This mirrors the TTG hosted-game realtime contract
+    // (tick(state, dtMs) + a high-frequency input handler).
+    readonly realtime?: {
+        tickRateHz?: number;
+    };
+
     // state is persisted as jsonb; move is parsed off the socket; config comes from the create
     // payload (falling back to defaultConfig). All three are validated with these schemas.
+    // `input` (realtime only) validates the high-frequency input payload; omit it to accept the
+    // payload unvalidated into applyInput's own checks.
     readonly schema: {
         state: ZodType<State>;
         move: ZodType<Move>;
         config: ZodType<Config>;
+        input?: ZodType<Input>;
     };
     readonly defaultConfig: Config;
 
@@ -107,16 +124,26 @@ export interface GameModule<State, Move, Config = Record<string, never>> {
 
     // Optional custom pot split. Omit to use the engine default above.
     settlement?(state: State, stakeWei: bigint): Settlement;
+
+    // Realtime only: advance the simulation by dtMs of simulated time. The engine checks
+    // isComplete()/outcome() after every tick (not after inputs) and broadcasts the new state, so
+    // the tick is the one fan-out cadence. Required when `realtime` is declared.
+    tick?(state: State, dtMs: number, ctx: TickContext): ApplyResult<State>;
+
+    // Realtime only: apply one player's high-frequency input (steering, aiming, ...). Mutates
+    // state silently -- nothing broadcasts until the next tick -- so input rate never amplifies
+    // into socket traffic. Throw or reject via schema to refuse an input.
+    applyInput?(state: State, input: Input, ctx: MoveContext): State;
 }
 
 // Identity helper for ergonomic type inference when authoring a game.
-export function defineGame<State, Move, Config>(
-    module: GameModule<State, Move, Config>,
-): GameModule<State, Move, Config> {
+export function defineGame<State, Move, Config, Input = unknown>(
+    module: GameModule<State, Move, Config, Input>,
+): GameModule<State, Move, Config, Input> {
     return module;
 }
 
 // The registry stores modules type-erased. The engine validates all I/O against each module's
 // zod schemas at the boundary, so the `any`s here never escape untyped into game code.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type AnyGameModule = GameModule<any, any, any>;
+export type AnyGameModule = GameModule<any, any, any, any>;

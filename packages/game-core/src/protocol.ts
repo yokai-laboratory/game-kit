@@ -60,6 +60,9 @@ export interface GameEvent {
 export type ClientMessage =
     // A game move. `move` is validated server-side against the GameModule's move schema.
     | { type: "move"; move: unknown }
+    // Realtime games only: a high-frequency input (validated against the module's input schema
+    // when one is declared). Applied silently; state arrives with the next server tick.
+    | { type: "input"; input: unknown }
     // Active-play presence (TTG): the browser presence widget mints the user-half play session and
     // relays its id here so the server can drive the GAME half. The server never mints the user half.
     | { type: "presence"; playSessionId: string };
@@ -89,7 +92,7 @@ export interface GameHistoryItem {
 // React-free here so game-core stays isomorphic; a game's screen is just
 // `(props: GameScreenProps<MyView, MyMove>) => JSX.Element`. `view` is the GameModule.view()
 // output for this seat; `submitMove` sends a move over the socket (validated server-side).
-export interface GameScreenProps<View, Move> {
+export interface GameScreenProps<View, Move, Input = unknown> {
     view: View;
     seat: Seat;
     you: PublicUser;
@@ -97,6 +100,9 @@ export interface GameScreenProps<View, Move> {
     status: RoomStatus;
     result: RoomResult;
     submitMove: (move: Move) => void;
+    // Realtime games: send a high-frequency input. No-op for turn-based games (the server rejects
+    // inputs on modules without a realtime declaration).
+    submitInput: (input: Input) => void;
     // Most recent game event broadcast to the room (e.g. a reveal). Null until one arrives.
     lastEvent: GameEvent | null;
 }

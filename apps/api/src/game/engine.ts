@@ -4,6 +4,7 @@ import { nanoid } from "nanoid";
 import { randomBytes } from "node:crypto";
 import type {
     AnyGameModule,
+    GameEvent,
     GameHistoryItem,
     Outcome,
     PlayerRef,
@@ -178,6 +179,16 @@ export async function advanceRoomAfterStakes(roomId: string): Promise<boolean> {
     return false;
 }
 
+// Realtime waker, injected at startup (ticker -> engine would otherwise be an import cycle).
+// Called whenever a room (re)enters in_progress so the tick loop starts the moment a realtime
+// match begins -- ws.ts also calls the ticker on socket open, which covers resume-after-restart.
+type RealtimeWaker = (roomId: string) => Promise<void>;
+let wakeRealtime: RealtimeWaker | null = null;
+
+export function setRealtimeWaker(fn: RealtimeWaker): void {
+    wakeRealtime = fn;
+}
+
 // Single entry point for "a payment intent just reached a terminal state". Every completion path --
 // the synchronous charge/purchase response, the TTG events socket, the poll backstop, the
 // return-page sync -- funnels the resolved intent row through here so the two intent kinds share one
@@ -191,7 +202,10 @@ export async function onIntentResolved(intent: IntentRow): Promise<void> {
     }
     if (!intent.roomId) return;
     const advanced = await advanceRoomAfterStakes(intent.roomId);
-    if (advanced) await broadcastState(intent.roomId);
+    if (advanced) {
+        await broadcastState(intent.roomId);
+        await wakeRealtime?.(intent.roomId);
+    }
 }
 
 // Apply a player's move. Wrapped in a row-locked transaction (SELECT ... FOR UPDATE) so concurrent
@@ -242,18 +256,34 @@ export async function applyMove(input: { roomId: string; userId: string; moveInp
         return { room, module, nextState, complete, outcome, winnerUserId, events: applied.events ?? [] };
     });
 
-    // Post-commit fan-out (Redis hub -> every replica -> local sockets).
-    await broadcastState(input.roomId);
-    for (const event of tx.events) await broadcastEvent(input.roomId, event);
+    await fanOutTransition(input.roomId, tx);
+}
+
+// Shared post-commit fan-out for every state transition (move or tick): broadcast over the Redis
+// hub, then fire settlement when the transition completed the game.
+interface AppliedTransition {
+    room: RoomRow;
+    module: AnyGameModule;
+    nextState: unknown;
+    complete: boolean;
+    outcome: Outcome;
+    winnerUserId: string | null;
+    events: GameEvent[];
+}
+
+async function fanOutTransition(roomId: string, tx: AppliedTransition): Promise<void> {
+    // (Redis hub -> every replica -> local sockets.)
+    await broadcastState(roomId);
+    for (const event of tx.events) await broadcastEvent(roomId, event);
 
     if (tx.complete) {
         const result: RoomResult =
             tx.outcome.kind === "win" ? { kind: "win", winnerUserId: tx.winnerUserId ?? "" } : { kind: "draw" };
-        await broadcastCompleted(input.roomId, result);
+        await broadcastCompleted(roomId, result);
         // Fire-and-forget: settlement relays an on-chain distribution that can take seconds; never
         // block the broadcast (and thus the live UI) on it. settleRoom is fully fail-soft.
         void settleRoom({
-            roomId: input.roomId,
+            roomId,
             potId: tx.room.potId,
             stakeEth: tx.room.stakeEth,
             hostUserId: tx.room.hostUserId,
@@ -262,8 +292,87 @@ export async function applyMove(input: { roomId: string; userId: string; moveInp
             module: tx.module,
             state: tx.nextState,
             gameDisplayName: tx.module.displayName,
-        }).catch((err: unknown) => logger.warn({ err, roomId: input.roomId }, "settleRoom threw"));
+        }).catch((err: unknown) => logger.warn({ err, roomId }, "settleRoom threw"));
     }
+}
+
+// Apply one realtime input. Same row-locked serialization as a move, but silent: nothing
+// broadcasts (the tick is the fan-out cadence) and completion is only ever decided by a tick.
+// Mirrors the TTG hosted-game semantics so a game graduates between the two without redesign.
+export async function applyInput(input: { roomId: string; userId: string; inputPayload: unknown }): Promise<void> {
+    await db.transaction(async (txn) => {
+        const rows = await txn
+            .select()
+            .from(schema.rooms)
+            .where(eq(schema.rooms.id, input.roomId))
+            .for("update")
+            .limit(1);
+        const room = rows[0];
+        if (!room) throw new GameError("room_not_found");
+        if (room.status !== "in_progress") throw new GameError("room_not_in_progress");
+
+        const seat = seatOf(room, input.userId);
+        if (!seat) throw new GameError("not_a_participant");
+
+        const module = requireModule(room.gameId);
+        if (!module.realtime || !module.applyInput) throw new GameError("inputs_not_supported");
+
+        const state = parseState(module, room.state);
+        let payload = input.inputPayload;
+        if (module.schema.input) {
+            const parsed = module.schema.input.safeParse(input.inputPayload);
+            if (!parsed.success) throw new GameError("bad_input");
+            payload = parsed.data;
+        }
+
+        let nextState: unknown;
+        try {
+            nextState = module.applyInput(state, payload, { roomId: input.roomId, by: seat, rng: cryptoRng() });
+        } catch {
+            throw new GameError("input_rejected");
+        }
+
+        await txn
+            .update(schema.rooms)
+            .set({ state: nextState, lastMoveSeat: seat, updatedAt: Date.now() })
+            .where(eq(schema.rooms.id, room.id));
+    });
+}
+
+// Advance a realtime room by one server tick. Returns "ticked" while the game continues; anything
+// else tells the ticker to stop its loop ("stopped" = room gone / not in progress / not realtime).
+export async function tickRoom(roomId: string, dtMs: number): Promise<"ticked" | "completed" | "stopped"> {
+    const tx = await db.transaction(async (txn): Promise<AppliedTransition | null> => {
+        const rows = await txn.select().from(schema.rooms).where(eq(schema.rooms.id, roomId)).for("update").limit(1);
+        const room = rows[0];
+        if (!room || room.status !== "in_progress") return null;
+
+        const module = requireModule(room.gameId);
+        if (!module.realtime || !module.tick) return null;
+
+        const state = parseState(module, room.state);
+        const applied = module.tick(state, dtMs, { roomId, rng: cryptoRng() });
+        const nextState = applied.state;
+        const complete = module.isComplete(nextState);
+        const outcome: Outcome = complete ? module.outcome(nextState) : { kind: "pending" };
+        const winnerUserId =
+            outcome.kind === "win" ? (outcome.winner === "host" ? room.hostUserId : room.guestUserId) : null;
+
+        await txn
+            .update(schema.rooms)
+            .set({
+                state: nextState,
+                updatedAt: Date.now(),
+                ...(complete ? { status: "completed", resultKind: outcome.kind, winnerUserId } : {}),
+            })
+            .where(eq(schema.rooms.id, room.id));
+
+        return { room, module, nextState, complete, outcome, winnerUserId, events: applied.events ?? [] };
+    });
+
+    if (!tx) return "stopped";
+    await fanOutTransition(roomId, tx);
+    return tx.complete ? "completed" : "ticked";
 }
 
 function toRoomMeta(room: RoomRow, hostName: string, guestName: string | null): RoomMeta {

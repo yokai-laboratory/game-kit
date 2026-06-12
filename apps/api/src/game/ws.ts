@@ -5,7 +5,8 @@ import { loadSessionUser } from "../auth/session.js";
 import { logger } from "../logger.js";
 import { type PlayerPresence, type PlaySessionGameStatus, startGameHalfPresence } from "../presence/ttg-presence.js";
 import { type Conn, register, sendTo, unregister } from "../realtime/hub.js";
-import { applyMove, buildRoomView, getRoomRow, GameError } from "./engine.js";
+import { applyInput, applyMove, buildRoomView, getRoomRow, GameError } from "./engine.js";
+import { ensureTicking } from "./ticker.js";
 
 // The room WebSocket. Generic over the game: it relays `move` messages to the engine (which drives
 // the active GameModule) and `presence` messages to the game-half handshake. All game-specific
@@ -74,6 +75,9 @@ export async function roomWsHandler(c: Context): Promise<WSEvents> {
             register(conn);
             const view = await buildRoomView(roomId, user.id);
             if (view) sendTo(conn, { type: "state", view });
+            // Realtime rooms: every socket open is a wake signal (no-op for turn-based rooms and
+            // while another replica's lease is live) -- resumes the loop after a restart.
+            await ensureTicking(roomId);
         },
         async onMessage(ev, ws) {
             conn.ws = ws;
@@ -96,6 +100,18 @@ export async function roomWsHandler(c: Context): Promise<WSEvents> {
                     if (e instanceof GameError) sendTo(conn, { type: "error", message: e.code });
                     else {
                         logger.error({ err: e, roomId }, "move handler threw");
+                        sendTo(conn, { type: "error", message: "internal_error" });
+                    }
+                }
+            }
+            if (msg.type === "input") {
+                try {
+                    // Silent on success: realtime state arrives with the next server tick.
+                    await applyInput({ roomId, userId: user.id, inputPayload: msg.input });
+                } catch (e) {
+                    if (e instanceof GameError) sendTo(conn, { type: "error", message: e.code });
+                    else {
+                        logger.error({ err: e, roomId }, "input handler threw");
                         sendTo(conn, { type: "error", message: "internal_error" });
                     }
                 }

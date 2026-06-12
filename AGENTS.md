@@ -49,7 +49,9 @@ moves → complete → settle. **You almost never edit the engine, payments, aut
    methods: `createInitialState`, `start`, `validateMove`, `applyMove`, `isComplete`, `outcome`,
    `view`). Take ALL randomness from the injected `rng`; never call `Math.random()`/`Date.now()` in
    game code. Default pot settlement (winner-takes-pot / draw-refunds) is automatic — only add
-   `settlement()` for custom splits.
+   `settlement()` for custom splits. For a real-time game, also declare `realtime: { tickRateHz }`
+   and implement `tick(state, dtMs, ctx)` + `applyInput(state, input, ctx)` — the engine then runs
+   a server tick loop instead of waiting on moves (see `docs/HOW-IT-WORKS.md`).
 3. Rewrite `screen.tsx` (a `GameScreenProps<YourView, YourMove>` component).
 4. Register it: add the module to `MODULES` in `apps/api/src/game/registry.ts`, the screen to
    `SCREENS` in `apps/web/src/games/registry.tsx`, and the package as a dependency of both

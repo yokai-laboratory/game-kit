@@ -75,6 +75,14 @@ interface GameModule<State, Move, Config> {
   outcome(state): { kind: "pending" | "win" | "draw"; winner? };
   view(state, seat): unknown;                // redacted per-seat projection (hide opponent secrets)
   settlement?(state, stakeWei): Settlement;  // OPTIONAL custom pot split
+
+  // OPTIONAL realtime extension (mirrors the TTG hosted-game contract). Declare
+  // `realtime: { tickRateHz? }` (capped 20Hz, default 10) and the engine drives a server tick
+  // loop instead of waiting on moves: tick advances the world, input steers it silently, and
+  // completion is decided after ticks. Turn-based modules omit all three and nothing changes.
+  realtime?: { tickRateHz?: number };
+  tick?(state, dtMs, ctx): { state; events? };      // advance the simulation by dtMs
+  applyInput?(state, input, ctx): State;            // high-frequency input; throw to reject
 }
 ```
 
