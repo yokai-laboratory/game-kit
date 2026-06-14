@@ -1,0 +1,31 @@
+{
+    "name": "@game-kit/game-hosted-b658f0aa",
+    "version": "0.0.0",
+    "private": true,
+    "type": "module",
+    "description": "Twenty-One Dash -- ejected from Titanium Games quick-path hosting.",
+    "exports": {
+        ".": "./src/index.ts",
+        "./screen": "./src/screen.tsx"
+    },
+    "scripts": {
+        "typecheck": "tsc --noEmit"
+    },
+    "dependencies": {
+        "@game-kit/game-core": "workspace:*",
+        "zod": "4.4.3"
+    },
+    "devDependencies": {
+        "@types/react": "19.2.16",
+        "react": "19.2.7",
+        "typescript": "6.0.3"
+    },
+    "peerDependencies": {
+        "react": "19.2.7"
+    },
+    "peerDependenciesMeta": {
+        "react": {
+            "optional": true
+        }
+    }
+}

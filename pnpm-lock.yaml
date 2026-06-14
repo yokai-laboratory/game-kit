@@ -29,6 +29,9 @@ importers:
       '@game-kit/game-core':
         specifier: workspace:*
         version: link:../../packages/game-core
+      '@game-kit/game-hosted-b658f0aa':
+        specifier: workspace:*
+        version: link:../../games/hosted-b658f0aa
       '@hono/node-server':
         specifier: 2.0.4
         version: 2.0.4(hono@4.12.23)
@@ -90,6 +93,9 @@ importers:
       '@game-kit/game-core':
         specifier: workspace:*
         version: link:../../packages/game-core
+      '@game-kit/game-hosted-b658f0aa':
+        specifier: workspace:*
+        version: link:../../games/hosted-b658f0aa
       '@titanium-games/sdk':
         specifier: 0.2.0
         version: 0.2.0(react@19.2.7)
@@ -120,6 +126,25 @@ importers:
         version: 8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(tsx@4.22.4)
 
   games/coinflip:
+    dependencies:
+      '@game-kit/game-core':
+        specifier: workspace:*
+        version: link:../../packages/game-core
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@types/react':
+        specifier: 19.2.16
+        version: 19.2.16
+      react:
+        specifier: 19.2.7
+        version: 19.2.7
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
+  games/hosted-b658f0aa:
     dependencies:
       '@game-kit/game-core':
         specifier: workspace:*

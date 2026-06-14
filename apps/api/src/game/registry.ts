@@ -1,5 +1,6 @@
 import type { AnyGameModule } from "@game-kit/game-core";
 import { coinflip } from "@game-kit/game-coinflip";
+import { hostedB658f0aa } from "@game-kit/game-hosted-b658f0aa";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The game registry -- the ONE place that knows which games exist.
@@ -9,7 +10,7 @@ import { coinflip } from "@game-kit/game-coinflip";
 // it here. Nothing else in apps/api is game-aware.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const MODULES: readonly AnyGameModule[] = [coinflip];
+const MODULES: readonly AnyGameModule[] = [coinflip, hostedB658f0aa];
 
 const byId = new Map<string, AnyGameModule>(MODULES.map((m) => [m.id, m]));
 
