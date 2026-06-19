@@ -17,7 +17,7 @@ import {
     getIntent,
     recordIntent,
 } from "./intents.js";
-import { fetchPaymentLimits, fetchPaymentPrice, getIntentStatus, requestCharge, TtgError } from "./oauth-client.js";
+import { fetchPaymentLimits, fetchPaymentPrice, getIntentStatus, requestCharge, TronError } from "./oauth-client.js";
 import { getPointPack, getUserPoints, POINT_PACKS } from "./points.js";
 
 export const paymentsRoutes = new Hono<{ Variables: { user: SessionUser } }>();
@@ -28,8 +28,8 @@ const chargeSchema = z.object({ roomId: z.string().min(1) });
 
 // POST /payments/charge -- create a charge intent for a room stake. chain/token from env, amount
 // from the room's stakeEth. Returns `completed` (silent offline) or `redirect` (send the user to
-// TTG's /pay page). Either way a local intent row is recorded so the events socket can map
-// intentId -> room when TTG pushes lifecycle transitions.
+// TRON's /pay page). Either way a local intent row is recorded so the events socket can map
+// intentId -> room when TRON pushes lifecycle transitions.
 paymentsRoutes.post("/charge", async (c) => {
     const body = await c.req.json().catch(() => ({}));
     const parsed = chargeSchema.safeParse(body);
@@ -59,7 +59,7 @@ paymentsRoutes.post("/charge", async (c) => {
     const returnUri = `${env.WEB_ORIGIN}/payment-return?roomId=${encodeURIComponent(room.id)}`;
     const gameName = getGameModule(room.gameId)?.displayName ?? room.gameId;
 
-    // Idempotency: reuse a still-pending intent's key so a re-click triggers TTG's replay instead of
+    // Idempotency: reuse a still-pending intent's key so a re-click triggers TRON's replay instead of
     // minting a second intent + cap reservation.
     const reusable = await findReusablePendingIntent({ roomId: room.id, userId: user.id, now: Date.now() });
     const idempotencyKey = reusable?.idempotencyKey ?? randomUUID();
@@ -85,11 +85,11 @@ paymentsRoutes.post("/charge", async (c) => {
             },
         });
     } catch (e) {
-        if (e instanceof TtgError) {
+        if (e instanceof TronError) {
             if (e.status === 422 && e.code === "idempotency_key_reused") {
-                return c.json({ error: "ttg_idempotency_mismatch", status: 422 }, 502);
+                return c.json({ error: "tron_idempotency_mismatch", status: 422 }, 502);
             }
-            return c.json({ error: "ttg_charge_failed", code: e.code, status: e.status }, 502);
+            return c.json({ error: "tron_charge_failed", code: e.code, status: e.status }, 502);
         }
         throw e;
     }
@@ -107,7 +107,7 @@ paymentsRoutes.post("/charge", async (c) => {
         );
     }
 
-    // 5min TTL mirrors TTG's intent TTL. The redirect path uses this for the backstop poll.
+    // 5min TTL mirrors TRON's intent TTL. The redirect path uses this for the backstop poll.
     const expiresAt = Date.now() + 5 * 60 * 1000;
     if (response.status === "completed") {
         await recordIntent({
@@ -159,7 +159,7 @@ const purchaseSchema = z.object({ packId: z.string().min(1) });
 // the exact same intent machinery as a stake (idempotency key reuse, events socket + poll backstop
 // reconciliation for the redirect path) -- the only difference is the recorded intent's `kind`, which
 // makes onIntentResolved credit points instead of advancing a room. This is the template for selling
-// any in-game inventory on TTG rails.
+// any in-game inventory on TRON rails.
 paymentsRoutes.post("/purchase", async (c) => {
     const body = await c.req.json().catch(() => ({}));
     const parsed = purchaseSchema.safeParse(body);
@@ -204,11 +204,11 @@ paymentsRoutes.post("/purchase", async (c) => {
             },
         });
     } catch (e) {
-        if (e instanceof TtgError) {
+        if (e instanceof TronError) {
             if (e.status === 422 && e.code === "idempotency_key_reused") {
-                return c.json({ error: "ttg_idempotency_mismatch", status: 422 }, 502);
+                return c.json({ error: "tron_idempotency_mismatch", status: 422 }, 502);
             }
-            return c.json({ error: "ttg_charge_failed", code: e.code, status: e.status }, 502);
+            return c.json({ error: "tron_charge_failed", code: e.code, status: e.status }, 502);
         }
         throw e;
     }
@@ -294,12 +294,12 @@ paymentsRoutes.get("/preflight/:roomId", async (c) => {
     ]);
     if (limitsResult.status === "rejected") {
         const e = limitsResult.reason;
-        if (e instanceof TtgError) return c.json({ error: "ttg_limits_failed", code: e.code, status: e.status }, 502);
+        if (e instanceof TronError) return c.json({ error: "tron_limits_failed", code: e.code, status: e.status }, 502);
         throw e;
     }
     if (priceResult.status === "rejected") {
         const e = priceResult.reason;
-        if (e instanceof TtgError) return c.json({ error: "ttg_price_failed", code: e.code, status: e.status }, 502);
+        if (e instanceof TronError) return c.json({ error: "tron_price_failed", code: e.code, status: e.status }, 502);
         throw e;
     }
     const limits = limitsResult.value;
@@ -353,7 +353,7 @@ paymentsRoutes.get("/intent/:id", async (c) => {
     return c.json({ intent: serializeIntent(row) });
 });
 
-// POST /payments/intent/:id/sync -- belt-and-suspenders poll of TTG on the return landing.
+// POST /payments/intent/:id/sync -- belt-and-suspenders poll of TRON on the return landing.
 paymentsRoutes.post("/intent/:id/sync", async (c) => {
     const user = c.get("user");
     const intentId = c.req.param("id");
@@ -368,7 +368,7 @@ paymentsRoutes.post("/intent/:id/sync", async (c) => {
     try {
         upstream = await getIntentStatus({ bearer: tokenRow.accessToken, intentId });
     } catch (e) {
-        if (e instanceof TtgError) return c.json({ error: "ttg_status_failed", code: e.code, status: e.status }, 502);
+        if (e instanceof TronError) return c.json({ error: "tron_status_failed", code: e.code, status: e.status }, 502);
         throw e;
     }
     if (upstream.status === "pending") return c.json({ intent: serializeIntent(row), changed: false });

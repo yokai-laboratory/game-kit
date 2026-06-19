@@ -6,12 +6,12 @@ it, play the demo, then tell an agent to *build game X* and let it strip the exa
 primitives.
 
 It documents the kit's wiring. For the **why** behind the platform flows it sits on — OAuth,
-payments, presence — read the Titanium Games (TTG) platform docs, which are the canonical reference:
+payments, presence — read the Metatron (TRON) platform docs, which are the canonical reference:
 
-- **Guides (build-a-game order):** <https://titaniumgames.gg/docs>
-- **SDK reference:** <https://titaniumgames.gg/sdk>
-- **API reference / OpenAPI:** <https://titaniumgames.gg/reference> · <https://titaniumgames.gg/openapi.json>
-- **Agents start here:** <https://titaniumgames.gg/llms.txt> — a machine-readable index of all of the above.
+- **Guides (build-a-game order):** <https://metatron.gg/docs>
+- **SDK reference:** <https://metatron.gg/sdk>
+- **API reference / OpenAPI:** <https://metatron.gg/reference> · <https://metatron.gg/openapi.json>
+- **Agents start here:** <https://metatron.gg/llms.txt> — a machine-readable index of all of the above.
 
 ---
 
@@ -46,8 +46,8 @@ so you can see them working, then be deleted.
 | `packages/game-core` | The `GameModule<State, Move, Config>` interface + the client/server wire protocol (`RoomView`, `ServerMessage`, `ClientMessage`, `GameScreenProps`). Isomorphic, zod-only. | Rarely |
 | `apps/api/src/game/engine.ts` | The **generic engine** — persists state, validates I/O against the module's schemas, serializes moves under a row lock, fans results out, fires settlement. | Almost never |
 | `apps/api/src/game/registry.ts` | The list of games the API knows about. | Per game |
-| `apps/api/src/payments/*` | The TTG charge / payout / pot adapter, the local intent mirror, the events socket, the poll backstop, and the store ([§6](#6-payments-two-shapes-of-money)). | Rarely |
-| `apps/api/src/presence/*` | The game-half of TTG's mutually-attested play sessions ([§5](#5-presence-the-gate-for-silent-charges)). | Rarely |
+| `apps/api/src/payments/*` | The TRON charge / payout / pot adapter, the local intent mirror, the events socket, the poll backstop, and the store ([§6](#6-payments-two-shapes-of-money)). | Rarely |
+| `apps/api/src/presence/*` | The game-half of TRON's mutually-attested play sessions ([§5](#5-presence-the-gate-for-silent-charges)). | Rarely |
 | `apps/api/src/realtime/hub.ts` | Redis pub/sub fan-out so any stateless API replica can serve any socket. | Rarely |
 | `apps/web/src/core/*` | Session auth, the API client, the room socket hook, the charge + store hooks, the presence widget. | Rarely |
 | `apps/web/src/games/registry.tsx` | `gameId → React screen`. | Per game |
@@ -76,7 +76,7 @@ interface GameModule<State, Move, Config> {
   view(state, seat): unknown;                // redacted per-seat projection (hide opponent secrets)
   settlement?(state, stakeWei): Settlement;  // OPTIONAL custom pot split
 
-  // OPTIONAL realtime extension (mirrors the TTG hosted-game contract). Declare
+  // OPTIONAL realtime extension (mirrors the TRON hosted-game contract). Declare
   // `realtime: { tickRateHz? }` (capped 20Hz, default 10) and the engine drives a server tick
   // loop instead of waiting on moves: tick advances the world, input steers it silently, and
   // completion is decided after ticks. Turn-based modules omit all three and nothing changes.
@@ -108,7 +108,7 @@ A room walks a small state machine (`RoomStatus`). Here is the whole path:
 
 ```
 host creates room ─▶ awaiting_host_stake
-       │  host charges stake (TTG)            ┌──────────── the generic engine ─────────────┐
+       │  host charges stake (TRON)            ┌──────────── the generic engine ─────────────┐
        ▼                                      │ createRoom  → mint pot, createInitialState   │
    waiting ───────────────────────────────── │ charge      → record intent, gate on stakes  │
        │  guest joins + charges stake         │ start       → module.start(state, rng)       │
@@ -116,7 +116,7 @@ host creates room ─▶ awaiting_host_stake
  awaiting_guest_stake ──▶ in_progress         │              (row-locked txn) → broadcast     │
        │  players submit moves over the WS    │ complete    → outcome() → settleRoom (pot)    │
        ▼                                      └───────────────────────────────────────────────┘
-   completed  ──▶  settlement distributes the pot via TTG (fire-and-forget)
+   completed  ──▶  settlement distributes the pot via TRON (fire-and-forget)
 ```
 
 - **Create.** `POST /rooms` → `engine.createRoom` mints a fresh CreditVault **pot** (a `bytes16` id),
@@ -130,7 +130,7 @@ host creates room ─▶ awaiting_host_stake
   `validateMove`, applies it, persists the new state, then broadcasts.
 - **Complete & settle.** When `isComplete` is true, the engine derives the `outcome`, marks the room
   `completed`, broadcasts it, and *fire-and-forgets* `settleRoom`, which turns the outcome into pot
-  legs and calls TTG `distributePot`. Settlement never blocks the live UI and is fail-soft.
+  legs and calls TRON `distributePot`. Settlement never blocks the live UI and is fail-soft.
 
 The engine is the part you don't rewrite. Your game only supplies the pure `GameModule` methods it
 calls.
@@ -139,18 +139,18 @@ calls.
 
 ## 5. Presence: the gate for silent charges
 
-TTG play sessions are *mutually attested*: a browser widget (running in the player's first-party TTG
+TRON play sessions are *mutually attested*: a browser widget (running in the player's first-party TRON
 session, origin-isolated) and a **game half** on your server both heartbeat the same `playSessionId`.
 A session reads `active` only while both halves are fresh.
 
 In the kit:
 
-- `apps/web/src/core/PresenceWidget.tsx` mounts TTG's widget and relays the minted `playSessionId`
+- `apps/web/src/core/PresenceWidget.tsx` mounts TRON's widget and relays the minted `playSessionId`
   to the server over the room socket.
-- `apps/api/src/presence/ttg-presence.ts` drives the game half (`confirm` → `heartbeat` → `end`) with
+- `apps/api/src/presence/tron-presence.ts` drives the game half (`confirm` → `heartbeat` → `end`) with
   the app's own credentials.
 
-Why it matters: an *active* session is the precondition for a **silent offline auto-charge** — TTG
+Why it matters: an *active* session is the precondition for a **silent offline auto-charge** — TRON
 will debit a present, under-cap player without a redirect. No presence, and the charge falls back to
 the hosted confirm page. Presence is the same machinery for stakes and store purchases.
 
@@ -158,7 +158,7 @@ the hosted confirm page. Presence is the same machinery for stakes and store pur
 
 ## 6. Payments: two shapes of money
 
-The kit never holds funds. Money always flows through TTG. There are **two shapes**, and they share
+The kit never holds funds. Money always flows through TRON. There are **two shapes**, and they share
 all the same plumbing — the difference is one field.
 
 ### Shape A — pot stake (rooms)
@@ -166,7 +166,7 @@ all the same plumbing — the difference is one field.
 Two players charge into a shared **pot**; the engine pays it back out on settle.
 
 ```
-charge(amount, potId) ─▶ intent (pending) ─▶ TTG events socket / poll backstop ─▶ completed
+charge(amount, potId) ─▶ intent (pending) ─▶ TRON events socket / poll backstop ─▶ completed
                                                                   │
                                           both players completed ─┴─▶ room starts
 room completes ─▶ settleRoom ─▶ distributePot(winner legs)  // winner-takes-pot / draw-refunds
@@ -181,16 +181,16 @@ currency**. The kit's demo grants **points** (`users.points`), shown in the top 
 ```
 purchase(packId) ─▶ charge(amount)  [no potId]  ─▶ intent (kind: "purchase", pending)
                                                           │
-                            completed (silent, or via TTG confirm + /payment-return)
+                            completed (silent, or via TRON confirm + /payment-return)
                                                           │
                                        creditPurchaseIfCompleted ─▶ users.points += pack.points
 ```
 
 ### Why they share one code path
 
-Both are TTG charge intents. The kit records every intent in one table
+Both are TRON charge intents. The kit records every intent in one table
 (`oauth_payment_intents`) with a `kind` discriminator, and **every** completion path — the
-synchronous charge response, the TTG **events socket** (`payments/ttg-socket.ts`), the 30-second
+synchronous charge response, the TRON **events socket** (`payments/tron-socket.ts`), the 30-second
 **poll backstop** (`payments/poll-backstop.ts`), and the `/payment-return` sync — funnels the
 resolved intent through a single dispatcher:
 
@@ -221,7 +221,7 @@ To sell a *cosmetic* or *consumable* instead of points, change what `creditPurch
 writes (a row in your own inventory table) — the money path is unchanged.
 
 The full payments model (intent lifecycle, monthly caps, the hosted raise-limit screen, payouts, pot
-distribution) is documented at <https://titaniumgames.gg/docs/payments>.
+distribution) is documented at <https://metatron.gg/docs/payments>.
 
 ---
 
@@ -272,5 +272,5 @@ and [`AGENTS.md`](../AGENTS.md). The point of the kit is that *building a game i
 - [`packages/game-core/README.md`](../packages/game-core/README.md) — the `GameModule` interface in full.
 - [`games/coinflip/README.md`](../games/coinflip/README.md) — the example, annotated (delete it after).
 - [`deploy/README.md`](../deploy/README.md) — the VPS runbook.
-- **TTG platform docs** — <https://titaniumgames.gg/docs> · SDK <https://titaniumgames.gg/sdk> ·
-  agents <https://titaniumgames.gg/llms.txt>.
+- **TRON platform docs** — <https://metatron.gg/docs> · SDK <https://metatron.gg/sdk> ·
+  agents <https://metatron.gg/llms.txt>.

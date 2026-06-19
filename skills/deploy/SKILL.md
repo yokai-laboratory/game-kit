@@ -17,10 +17,10 @@ Resolve any ✗ before continuing. Common fixes: install Docker Engine + the com
 ports 80/443; add the user to the `docker` group.
 
 ## 2. SDK availability
-`@titanium-games/sdk` must be resolvable during the image build (it's not on public npm). Options:
+`@metatron/sdk` must be resolvable during the image build (it's not on public npm). Options:
 - Run a Verdaccio with the SDK published, reachable at `http://localhost:4873` on the VPS (the api/web
   builds use `network: host`, so localhost works), **or**
-- Publish the SDK to a private registry and set the `@titanium-games` scope in `.npmrc` to it (and
+- Publish the SDK to a private registry and set the `@metatron` scope in `.npmrc` to it (and
   pass `NPM_CONFIG_REGISTRY` if your default registry also changes).
 
 ## 3. Configure env
@@ -34,8 +34,8 @@ Then edit `deploy/.env`:
 - `WEB_ORIGIN=https://<domain>`, `OAUTH_REDIRECT_URI=https://<domain>/api/auth/callback`.
 - Strong `POSTGRES_PASSWORD` + matching `DATABASE_URL`; generated `SESSION_SECRET`
   (`openssl rand -hex 32`).
-- All `OAUTH_*` + `TTG_API_ORIGIN` + `PAYMENT_*` from the TTG app.
-- **Register `OAUTH_REDIRECT_URI` and the embed origin on the TTG app** (dashboard or API).
+- All `OAUTH_*` + `TRON_API_ORIGIN` + `PAYMENT_*` from the TRON app.
+- **Register `OAUTH_REDIRECT_URI` and the embed origin on the TRON app** (dashboard or API).
 
 ## 4. Bring it up
 ```
@@ -49,7 +49,7 @@ starts everything. Caddy provisions TLS on first request to `DOMAIN`.
 - `docker compose --env-file .env ps` — all services healthy; `migrate` exited 0.
 - `curl -fsS https://<domain>/api/ready` → `{"ok":true,"db":true,"redis":true}` (Caddy strips the
   `/api` prefix, so this hits the API's `/ready`).
-- Open `https://<domain>`, sign in with TTG, create a room, and confirm the OAuth + a stake charge
+- Open `https://<domain>`, sign in with TRON, create a room, and confirm the OAuth + a stake charge
   round-trip works end to end.
 - Logs: `docker compose --env-file .env logs -f api`.
 
@@ -62,6 +62,6 @@ starts everything. Caddy provisions TLS on first request to `DOMAIN`.
 
 ## Troubleshooting
 - **TLS not issued:** DNS not pointing at the box yet, or port 80 blocked (Let's Encrypt HTTP-01).
-- **Sign-in fails:** redirect-URI mismatch between TTG app and `OAUTH_REDIRECT_URI`.
-- **Build can't find @titanium-games/sdk:** registry not reachable during build (see step 2).
+- **Sign-in fails:** redirect-URI mismatch between TRON app and `OAUTH_REDIRECT_URI`.
+- **Build can't find @metatron/sdk:** registry not reachable during build (see step 2).
 - **api unhealthy:** check `DATABASE_URL`/`REDIS_URL` and that `migrate` succeeded.

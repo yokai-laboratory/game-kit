@@ -2,10 +2,10 @@ import { loadAccessTokenForUser } from "../auth/oauth.js";
 import { onIntentResolved } from "../game/engine.js";
 import { logger } from "../logger.js";
 import { applyIntentTransition, listExpiredPendingIntents } from "./intents.js";
-import { getIntentStatus, TtgError } from "./oauth-client.js";
+import { getIntentStatus, TronError } from "./oauth-client.js";
 
 // Polling backstop for the events socket. Every 30s it finds locally-pending intents past their
-// TTG-side TTL and asks TTG for the canonical state. Covers: socket reconnect windows, dropped
+// TRON-side TTL and asks TRON for the canonical state. Covers: socket reconnect windows, dropped
 // webhooks, and janitor expiry. Runs on every replica; applyIntentTransition is idempotent so
 // overlap is harmless.
 //
@@ -45,8 +45,8 @@ export function startPollBackstop(): PollBackstop {
             try {
                 upstream = await getIntentStatus({ bearer: tokenRow.accessToken, intentId: row.id });
             } catch (e) {
-                if (e instanceof TtgError) {
-                    logger.warn({ intentId: row.id, code: e.code, status: e.status }, "ttg status failed");
+                if (e instanceof TronError) {
+                    logger.warn({ intentId: row.id, code: e.code, status: e.status }, "tron status failed");
                     continue;
                 }
                 throw e;

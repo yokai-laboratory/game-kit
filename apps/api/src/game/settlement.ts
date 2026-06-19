@@ -3,10 +3,10 @@ import type { AnyGameModule, Outcome, Seat } from "@game-kit/game-core";
 import { db, schema } from "../db/client.js";
 import { env } from "../env.js";
 import { logger } from "../logger.js";
-import { requestDistribute, TtgError } from "../payments/oauth-client.js";
+import { requestDistribute, TronError } from "../payments/oauth-client.js";
 
 // 18 decimals for native ETH + the in-scope stablecoins. ERC-20s with other decimals would need a
-// per-token decimals lookup; the template assumes 18 (matches TTG's anvil-local + ETH).
+// per-token decimals lookup; the template assumes 18 (matches TRON's anvil-local + ETH).
 const ETH_DECIMALS = 18n;
 
 export function ethToWei(eth: string): bigint {
@@ -17,7 +17,7 @@ export function ethToWei(eth: string): bigint {
 
 const PROVIDER_PREFIX = `${env.OAUTH_PROVIDER_NAME}:`;
 
-async function resolveTtgUserId(localUserId: string): Promise<string | null> {
+async function resolveTronUserId(localUserId: string): Promise<string | null> {
     const rows = await db
         .select({ providerSub: schema.users.providerSub })
         .from(schema.users)
@@ -32,7 +32,7 @@ async function resolveTtgUserId(localUserId: string): Promise<string | null> {
 // Settle a finished room's on-chain pot. Legs come from the GameModule's settlement() override, or
 // the engine default: winner takes the full pot (2 x stake); a draw refunds each player 1 x stake.
 // Fully fail-soft + fire-and-forget -- a settlement hiccup is logged but never blocks the room's
-// completed transition (the operator can re-settle the pot manually if TTG's relay reverted).
+// completed transition (the operator can re-settle the pot manually if TRON's relay reverted).
 export async function settleRoom(input: {
     roomId: string;
     potId: string | null;
@@ -69,12 +69,12 @@ export async function settleRoom(input: {
         for (const leg of legsBySeat) {
             const localUserId = seatUserId(leg.seat);
             if (localUserId === null) continue;
-            const ttgUserId = await resolveTtgUserId(localUserId);
-            if (ttgUserId === null) {
+            const tronUserId = await resolveTronUserId(localUserId);
+            if (tronUserId === null) {
                 logger.warn({ roomId: input.roomId, seat: leg.seat }, "settle: leg skipped (unresolvable user)");
                 continue;
             }
-            resolved.push({ recipientUserId: ttgUserId, amount: leg.amountWei.toString() });
+            resolved.push({ recipientUserId: tronUserId, amount: leg.amountWei.toString() });
         }
         if (resolved.length === 0) {
             logger.warn({ roomId: input.roomId }, "settle: no resolvable legs, pot left intact");
@@ -99,7 +99,7 @@ export async function settleRoom(input: {
             "settle: pot distributed",
         );
     } catch (error) {
-        const reason = error instanceof TtgError ? `${error.status} ${error.code}` : (error as Error).message;
+        const reason = error instanceof TronError ? `${error.status} ${error.code}` : (error as Error).message;
         logger.warn({ roomId: input.roomId, potId: input.potId, reason }, "settle: distribution failed");
     }
 }

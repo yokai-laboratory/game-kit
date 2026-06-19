@@ -4,8 +4,8 @@
 
 export type Seat = "host" | "guest";
 
-// Mirrors the room state machine in apps/api. `awaiting_*_stake` map onto the TTG payment-intent
-// lifecycle: the room sits there until TTG fires `intent.completed` (or the poll backstop catches
+// Mirrors the room state machine in apps/api. `awaiting_*_stake` map onto the TRON payment-intent
+// lifecycle: the room sits there until TRON fires `intent.completed` (or the poll backstop catches
 // up). `cancelled` is reserved for an explicit cancel surface.
 export type RoomStatus =
     | "awaiting_host_stake"
@@ -63,7 +63,7 @@ export type ClientMessage =
     // Realtime games only: a high-frequency input (validated against the module's input schema
     // when one is declared). Applied silently; state arrives with the next server tick.
     | { type: "input"; input: unknown }
-    // Active-play presence (TTG): the browser presence widget mints the user-half play session and
+    // Active-play presence (TRON): the browser presence widget mints the user-half play session and
     // relays its id here so the server can drive the GAME half. The server never mints the user half.
     | { type: "presence"; playSessionId: string };
 
@@ -71,7 +71,7 @@ export type ServerMessage =
     | { type: "state"; view: RoomView }
     | { type: "event"; event: GameEvent }
     | { type: "completed"; result: RoomResult }
-    // Server-derived presence: true only while BOTH halves are fresh -- the precondition TTG's
+    // Server-derived presence: true only while BOTH halves are fresh -- the precondition TRON's
     // silent offline-charge gate consults. The room defers an offline-eligible stake charge until
     // this is true so it isn't fired into a guaranteed redirect.
     | { type: "presence_state"; active: boolean }

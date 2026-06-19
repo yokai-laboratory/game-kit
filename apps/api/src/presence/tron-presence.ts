@@ -1,29 +1,29 @@
-import type { PlaySessionGameStatus } from "@titanium-games/sdk/node";
+import type { PlaySessionGameStatus } from "@metatron/sdk/node";
 import { eq } from "drizzle-orm";
 
 import { db, schema } from "../db/client.js";
 import { env } from "../env.js";
 import { logger } from "../logger.js";
-import { ttgClient } from "../payments/ttg-client.js";
+import { tronClient } from "../payments/tron-client.js";
 
 export type { PlaySessionGameStatus };
 
-// Active-play presence -- the GAME side of TTG's mutual-attestation handshake. The USER half is
-// driven by TTG's origin-isolated widget in the player's own browser (it mints + heartbeats with
-// the player's first-party TTG session, which this server can neither read nor replay). The browser
+// Active-play presence -- the GAME side of TRON's mutual-attestation handshake. The USER half is
+// driven by TRON's origin-isolated widget in the player's own browser (it mints + heartbeats with
+// the player's first-party TRON session, which this server can neither read nor replay). The browser
 // relays only the minted playSessionId over the room socket; this module drives the GAME half off
-// that id with the app's client credentials. A session reads `active` on TTG only while BOTH halves
+// that id with the app's client credentials. A session reads `active` on TRON only while BOTH halves
 // are fresh -- so "active" genuinely means the player's browser is present. This is the precondition
 // for firing a silent offline charge instead of bouncing the user to a redirect.
 //
 // Best-effort throughout: any failure just means no game half for that player; gameplay never
 // depends on it.
 
-// A third of TTG's 45s half-TTL: one dropped beat is tolerated before the half lapses.
+// A third of TRON's 45s half-TTL: one dropped beat is tolerated before the half lapses.
 const HEARTBEAT_INTERVAL_MS = 15_000;
 
-// Resolve the TTG user id for a local user (the OAuth sub, stored as `<provider>:<sub>`).
-export async function resolveTtgUserId(userId: string): Promise<string | null> {
+// Resolve the TRON user id for a local user (the OAuth sub, stored as `<provider>:<sub>`).
+export async function resolveTronUserId(userId: string): Promise<string | null> {
     const prefix = `${env.OAUTH_PROVIDER_NAME}:`;
     const rows = await db
         .select({ providerSub: schema.users.providerSub })
@@ -32,8 +32,8 @@ export async function resolveTtgUserId(userId: string): Promise<string | null> {
         .limit(1);
     const row = rows[0];
     if (!row || !row.providerSub.startsWith(prefix)) return null;
-    const ttgUserId = row.providerSub.slice(prefix.length);
-    return ttgUserId.length === 0 ? null : ttgUserId;
+    const tronUserId = row.providerSub.slice(prefix.length);
+    return tronUserId.length === 0 ? null : tronUserId;
 }
 
 // The GAME half of one player's presence, for the lifetime of a room socket. Confirms once, then
@@ -45,7 +45,7 @@ export class PlayerPresence {
 
     constructor(
         private readonly playSessionId: string,
-        private readonly ttgUserId: string,
+        private readonly tronUserId: string,
         private readonly onStatus?: (status: PlaySessionGameStatus) => void,
     ) {
         void this.begin();
@@ -59,17 +59,17 @@ export class PlayerPresence {
 
     private async begin(): Promise<void> {
         try {
-            const { status } = await ttgClient.presence.confirm({
+            const { status } = await tronClient.presence.confirm({
                 playSessionId: this.playSessionId,
-                userId: this.ttgUserId,
+                userId: this.tronUserId,
             });
             if (this.stopped) {
-                await ttgClient.presence.end({ playSessionId: this.playSessionId }).catch(() => undefined);
+                await tronClient.presence.end({ playSessionId: this.playSessionId }).catch(() => undefined);
                 return;
             }
             this.emit(status);
             this.gameBeat = setInterval(() => {
-                void ttgClient.presence
+                void tronClient.presence
                     .heartbeat({ playSessionId: this.playSessionId })
                     .then(({ status: beat }) => {
                         if (!this.stopped) this.emit(beat);
@@ -89,18 +89,18 @@ export class PlayerPresence {
             this.gameBeat = null;
         }
         this.emit("ended");
-        await ttgClient.presence.end({ playSessionId: this.playSessionId }).catch(() => undefined);
+        await tronClient.presence.end({ playSessionId: this.playSessionId }).catch(() => undefined);
     }
 }
 
 // Start the game half for a browser-relayed playSessionId. Returns null when the user can't be
-// mapped to a TTG user id.
+// mapped to a TRON user id.
 export async function startGameHalfPresence(
     userId: string,
     playSessionId: string,
     onStatus?: (status: PlaySessionGameStatus) => void,
 ): Promise<PlayerPresence | null> {
-    const ttgUserId = await resolveTtgUserId(userId);
-    if (ttgUserId === null) return null;
-    return new PlayerPresence(playSessionId, ttgUserId, onStatus);
+    const tronUserId = await resolveTronUserId(userId);
+    if (tronUserId === null) return null;
+    return new PlayerPresence(playSessionId, tronUserId, onStatus);
 }

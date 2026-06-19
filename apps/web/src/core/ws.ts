@@ -11,7 +11,7 @@ export interface RoomConnection {
     // Realtime games: high-frequency input; state arrives with the next server tick.
     submitInput: (input: unknown) => void;
     lastEvent: GameEvent | null;
-    // Relay the TTG presence widget's minted playSessionId to the server (it drives the game half).
+    // Relay the TRON presence widget's minted playSessionId to the server (it drives the game half).
     relayPresence: (playSessionId: string) => void;
     // Server-derived presence: true only while BOTH halves are fresh. The Room defers an offline-
     // eligible stake charge until this is true so it isn't fired into a guaranteed redirect.

@@ -25,7 +25,7 @@ jobs:
             - name: smart-contracts has no package.json (stays out of the workspace)
               run: test ! -f packages/smart-contracts/package.json
 
-    # Typecheck the workspace. Needs the @titanium-games/sdk registry, which isn't on public npm.
+    # Typecheck the workspace. Needs the @metatron/sdk registry, which isn't on public npm.
     # Configure a repo variable SDK_REGISTRY (and secret SDK_NPM_TOKEN if it needs auth) pointing at
     # your registry to enable this job; otherwise it's skipped so the template's CI stays green.
     typecheck:
@@ -38,9 +38,9 @@ jobs:
               with:
                   node-version: 24
                   cache: pnpm
-            - name: point @titanium-games scope at the configured registry
+            - name: point @metatron scope at the configured registry
               run: |
-                  echo "@titanium-games:registry=${{ vars.SDK_REGISTRY }}" > .npmrc
+                  echo "@metatron:registry=${{ vars.SDK_REGISTRY }}" > .npmrc
                   if [ -n "${{ secrets.SDK_NPM_TOKEN }}" ]; then
                     reg="${{ vars.SDK_REGISTRY }}"; host="${reg#http*://}"
                     echo "//${host}:_authToken=${{ secrets.SDK_NPM_TOKEN }}" >> .npmrc

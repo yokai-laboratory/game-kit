@@ -190,7 +190,7 @@ export function setRealtimeWaker(fn: RealtimeWaker): void {
 }
 
 // Single entry point for "a payment intent just reached a terminal state". Every completion path --
-// the synchronous charge/purchase response, the TTG events socket, the poll backstop, the
+// the synchronous charge/purchase response, the TRON events socket, the poll backstop, the
 // return-page sync -- funnels the resolved intent row through here so the two intent kinds share one
 // reaction: a completed stake advances its room; a completed purchase credits its points. Both
 // branches are idempotent, so duplicate observations (multi-replica sockets, poll overlap) are safe.
@@ -298,7 +298,7 @@ async function fanOutTransition(roomId: string, tx: AppliedTransition): Promise<
 
 // Apply one realtime input. Same row-locked serialization as a move, but silent: nothing
 // broadcasts (the tick is the fan-out cadence) and completion is only ever decided by a tick.
-// Mirrors the TTG hosted-game semantics so a game graduates between the two without redesign.
+// Mirrors the TRON hosted-game semantics so a game graduates between the two without redesign.
 export async function applyInput(input: { roomId: string; userId: string; inputPayload: unknown }): Promise<void> {
     db.transaction((txn) => {
         const rows = txn.select().from(schema.rooms).where(eq(schema.rooms.id, input.roomId)).limit(1).all();

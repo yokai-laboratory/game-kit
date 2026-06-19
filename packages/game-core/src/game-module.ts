@@ -88,7 +88,7 @@ export interface GameModule<State, Move, Config = Record<string, never>, Input =
     // Realtime declaration (optional). Declaring this flips the engine into a server tick loop:
     // it calls `tick()` at the declared rate (capped at 20Hz by the engine) while the room is
     // in_progress, and routes `input` socket messages to `applyInput()`. Turn-based modules omit
-    // it and nothing changes. This mirrors the TTG hosted-game realtime contract
+    // it and nothing changes. This mirrors the TRON hosted-game realtime contract
     // (tick(state, dtMs) + a high-frequency input handler).
     readonly realtime?: {
         tickRateHz?: number;

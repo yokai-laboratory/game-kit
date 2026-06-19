@@ -6,7 +6,7 @@ import {Script, console} from "forge-std/Script.sol";
 import {GameSettlement} from "../src/GameSettlement.sol";
 
 /// @notice EXAMPLE deployment for the GameSettlement attestor. Swap this out for your game's
-///         real contracts (or delete the whole package if your game only uses TTG's rails).
+///         real contracts (or delete the whole package if your game only uses TRON's rails).
 ///
 ///         Reads the deployer key from the `PRIVATE_KEY` env var and uses that account as the
 ///         initial owner (the game backend signer). Override the owner with the optional

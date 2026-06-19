@@ -1,12 +1,12 @@
 # `@game-kit/smart-contracts` — optional custom on-chain logic
 
 > **This package is OPTIONAL and is an EXAMPLE scaffold.** Most games built on the
-> Titanium Games (TTG) platform never need it: payments, entry fees, pots, prize
-> escrow and signed payouts all flow through **TTG's platform rails** (the
-> `CreditVault` pots in the TTG monorepo, reached off-chain via the TTG SDK). Reach
+> Metatron (TRON) platform never need it: payments, entry fees, pots, prize
+> escrow and signed payouts all flow through **TRON's platform rails** (the
+> `CreditVault` pots in the TRON monorepo, reached off-chain via the TRON SDK). Reach
 > for this package only when your game needs its **own** bespoke on-chain logic —
 > e.g. an on-chain match-result attestation, a custom leaderboard, an NFT mint, or a
-> commit-reveal scheme — that goes beyond what TTG's pots already do.
+> commit-reveal scheme — that goes beyond what TRON's pots already do.
 >
 > The included `GameSettlement` contract is a throwaway example. Replace it with your
 > game's contracts, or delete this whole directory if you don't need it.
@@ -28,10 +28,10 @@ standalone [Foundry](https://book.getfoundry.sh/) project managed with `forge`.
 
 - **Foundry** — install via `curl -L https://foundry.paradigm.xyz | bash && foundryup`.
 - **Solidity `0.8.35`**, optimizer on (`200` runs), `via_ir = true` — matched to the
-  TTG platform contracts.
+  TRON platform contracts.
 - Dependencies are managed with **[soldeer](https://soldeer.xyz/)** (declared in
   `foundry.toml` + pinned in `soldeer.lock`, installed into `dependencies/`), the same
-  mechanism TTG uses. Only `forge-std` is vendored for this example.
+  mechanism TRON uses. Only `forge-std` is vendored for this example.
 
 ## Install · build · test
 
@@ -76,7 +76,7 @@ The script logs the deployed `GameSettlement` address. Copy it from the console 
 
 ## Wiring the deployed address into the app
 
-Expose the address to the game's frontend/backend via env, then read it with the TTG
+Expose the address to the game's frontend/backend via env, then read it with the TRON
 SDK / [viem](https://viem.sh/):
 
 ```bash
@@ -102,9 +102,9 @@ The backend signer (the deployer / `SETTLEMENT_OWNER` account) is the only addre
 can call `openMatch` / `reportResult`, so those writes belong in a trusted server, not
 the browser.
 
-## Reminder: money still flows through TTG
+## Reminder: money still flows through TRON
 
 This example contract is a registry, not a vault — it deliberately custodies nothing.
 For anything involving real value (entry fees, pots, payouts, fees, disputes), use the
-TTG `CreditVault` pots through the platform SDK. Keep bespoke contracts here scoped to
+TRON `CreditVault` pots through the platform SDK. Keep bespoke contracts here scoped to
 game-specific logic that the platform doesn't already provide.

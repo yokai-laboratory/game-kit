@@ -3,11 +3,11 @@ import { getPoints, type PointPack } from "../core/api";
 import { useAuth } from "../core/auth";
 import { usePurchase } from "../core/use-charge";
 
-// The store: buy point packs with a one-way TTG charge. This is the inventory/soft-currency pattern
+// The store: buy point packs with a one-way TRON charge. This is the inventory/soft-currency pattern
 // — unlike a room stake there is no pot and no refund; the charge debits the player and the server
 // credits points on completion. The buy buttons drive usePurchase(); on a silent (offline
 // auto-charge) completion the points land immediately, so we refresh the session to update the
-// balance. A charge that needs confirmation redirects to TTG and returns via /payment-return.
+// balance. A charge that needs confirmation redirects to TRON and returns via /payment-return.
 export function Store(): React.JSX.Element {
     const { user, refresh } = useAuth();
     const { status, purchase, reset } = usePurchase();
@@ -46,7 +46,7 @@ export function Store(): React.JSX.Element {
                 </p>
                 <p className="muted small">
                     Points are bought with a one-way charge — a demo of selling in-game currency or inventory on
-                    Titanium Games rails. Nothing here is staked or refundable.
+                    Metatron rails. Nothing here is staked or refundable.
                 </p>
             </section>
 
@@ -76,7 +76,7 @@ export function Store(): React.JSX.Element {
                     <p className="error">
                         This purchase would exceed your monthly cap.{" "}
                         <a className="link" href={status.redirectUrl}>
-                            Raise it on Titanium Games
+                            Raise it on Metatron
                         </a>
                         .
                     </p>

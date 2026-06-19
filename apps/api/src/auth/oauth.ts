@@ -6,7 +6,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { env } from "../env.js";
 import { db, schema } from "../db/client.js";
 import { logger } from "../logger.js";
-import { ttgClient } from "../payments/ttg-client.js";
+import { tronClient } from "../payments/tron-client.js";
 import { attachSessionCookie, createSession, destroySession, loadSessionUser } from "./session.js";
 
 const STATE_COOKIE = "gk_oauth_state";
@@ -63,9 +63,9 @@ authRoutes.get("/callback", async (c) => {
 
     // Authorization-code exchange via the SDK back-channel (derives /oauth/token from the issuer,
     // attaches client_id + client_secret; the PKCE verifier travels in the body).
-    let tokens: Awaited<ReturnType<typeof ttgClient.oauth.exchangeCode>>;
+    let tokens: Awaited<ReturnType<typeof tronClient.oauth.exchangeCode>>;
     try {
-        tokens = await ttgClient.oauth.exchangeCode({
+        tokens = await tronClient.oauth.exchangeCode({
             code,
             redirectUri: env.OAUTH_REDIRECT_URI,
             codeVerifier: verifier,
@@ -74,9 +74,9 @@ authRoutes.get("/callback", async (c) => {
         return c.text(`oauth: token exchange failed (${(error as Error).message})`, 502);
     }
 
-    let info: Awaited<ReturnType<typeof ttgClient.oauth.userInfo>>;
+    let info: Awaited<ReturnType<typeof tronClient.oauth.userInfo>>;
     try {
-        info = await ttgClient.oauth.userInfo({ bearer: tokens.access_token });
+        info = await tronClient.oauth.userInfo({ bearer: tokens.access_token });
     } catch (error) {
         return c.text(`oauth: userinfo failed (${(error as Error).message})`, 502);
     }
@@ -99,7 +99,7 @@ authRoutes.get("/callback", async (c) => {
             id: userId,
             providerSub,
             displayName: info.name ?? "Player",
-            // TTG's /userinfo exposes only sub / name / picture (no email by default).
+            // TRON's /userinfo exposes only sub / name / picture (no email by default).
             email: null,
             createdAt: Date.now(),
         });
@@ -155,7 +155,7 @@ type TokenRow = {
 // Refresh ~1 min before expiry so an in-flight request that crosses the boundary still lands valid.
 const REFRESH_SKEW_MS = 60_000;
 
-// Coalesce concurrent refreshes per user -- TTG rotates the refresh token on every exchange and
+// Coalesce concurrent refreshes per user -- TRON rotates the refresh token on every exchange and
 // revokes the chain on reuse, so two parallel callers presenting the same row would log the user
 // out. NOTE: this map is per-process. Across replicas, two instances could still race a refresh;
 // that's an accepted edge for the template (the loser gets a fresh /auth/login). A Redis lock keyed
@@ -190,11 +190,11 @@ function shouldRefresh(expiresAt: number | null): boolean {
 }
 
 async function rotateRefreshToken(userId: string, refreshToken: string): Promise<TokenRow | null> {
-    let tokens: Awaited<ReturnType<typeof ttgClient.oauth.refresh>>;
+    let tokens: Awaited<ReturnType<typeof tronClient.oauth.refresh>>;
     try {
-        tokens = await ttgClient.oauth.refresh({ refreshToken });
+        tokens = await tronClient.oauth.refresh({ refreshToken });
     } catch {
-        // Chain is dead (revoked / reused / expired) or TTG is down. Drop the row -- a stale row
+        // Chain is dead (revoked / reused / expired) or TRON is down. Drop the row -- a stale row
         // only causes ambiguous 401s later; a transient outage heals on the next /auth/login.
         await db.delete(schema.oauthAccessTokens).where(eq(schema.oauthAccessTokens.userId, userId));
         return null;
@@ -213,6 +213,6 @@ async function rotateRefreshToken(userId: string, refreshToken: string): Promise
             issuedAt: now,
         })
         .where(eq(schema.oauthAccessTokens.userId, userId));
-    logger.debug({ userId }, "rotated TTG refresh token");
+    logger.debug({ userId }, "rotated TRON refresh token");
     return { accessToken: tokens.access_token, scope: nextScope, expiresAt };
 }

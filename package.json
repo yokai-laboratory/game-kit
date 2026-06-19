@@ -2,7 +2,7 @@
     "name": "game-kit",
     "private": true,
     "packageManager": "pnpm@11.1.2",
-    "description": "Full-stack web3 game template built on the Titanium Games (TTG) payment + identity rails. Ships a coin-flip duel example you swap out for your own game.",
+    "description": "Full-stack web3 game template built on the Metatron (TRON) payment + identity rails. Ships a coin-flip duel example you swap out for your own game.",
     "engines": {
         "node": ">=24"
     },

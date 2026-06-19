@@ -3,7 +3,7 @@
     "version": "0.0.0",
     "private": true,
     "type": "module",
-    "description": "Twenty-One Dash -- ejected from Titanium Games quick-path hosting.",
+    "description": "Twenty-One Dash -- ejected from Metatron quick-path hosting.",
     "exports": {
         ".": "./src/index.ts",
         "./screen": "./src/screen.tsx"

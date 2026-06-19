@@ -38,7 +38,7 @@ importers:
       '@hono/node-ws':
         specifier: 1.3.1
         version: 1.3.1(@hono/node-server@2.0.4(hono@4.12.23))(hono@4.12.23)
-      '@titanium-games/sdk':
+      '@metatron/sdk':
         specifier: 0.7.0
         version: 0.7.0(hono@4.12.23)(react@19.2.7)
       better-sqlite3:
@@ -96,7 +96,7 @@ importers:
       '@game-kit/game-hosted-b658f0aa':
         specifier: workspace:*
         version: link:../../games/hosted-b658f0aa
-      '@titanium-games/sdk':
+      '@metatron/sdk':
         specifier: 0.7.0
         version: 0.7.0(hono@4.12.23)(react@19.2.7)
       react:
@@ -356,6 +356,17 @@ packages:
   '@ioredis/commands@1.10.0':
     resolution: {integrity: sha512-UmeW7z4LfctwoQ5wkhVzgq8tXkreED2xZGpX+Bg+zA+WJFZCT6c062AfCK/Dfk81xZnnwdhJCUMkitihRaoC2Q==}
 
+  '@metatron/sdk@0.7.0':
+    resolution: {integrity: sha512-EqQ4A1rXvyz9Y+NtIfg1ctWUsvek66GbV+1oD2lh2tt/aZqElblu0YCE91ooOInvq1EB0x3H8BUeUhq3psPtuQ==}
+    peerDependencies:
+      hono: 4.12.23
+      react: 19.2.7
+    peerDependenciesMeta:
+      hono:
+        optional: true
+      react:
+        optional: true
+
   '@napi-rs/wasm-runtime@1.1.4':
     resolution: {integrity: sha512-3NQNNgA1YSlJb/kMH1ildASP9HW7/7kYnRI2szWJaofaS1hWmbGI4H+d3+22aGzXXN9IJ+n+GiFVcGipJP18ow==}
     peerDependencies:
@@ -462,17 +473,6 @@ packages:
 
   '@rolldown/pluginutils@1.0.1':
     resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
-
-  '@titanium-games/sdk@0.7.0':
-    resolution: {integrity: sha512-ampaKIw/wQgCnMSFv3qnlX81OGrk5dB3I/YWLGh7OL7hXm8y792F1PzlpBHFYSRtF2ayS0IPPXZ/WcDMNKZFCg==}
-    peerDependencies:
-      hono: 4.12.23
-      react: 19.2.7
-    peerDependenciesMeta:
-      hono:
-        optional: true
-      react:
-        optional: true
 
   '@turbo/darwin-64@2.9.16':
     resolution: {integrity: sha512-jLjApWTSNd7JZ5JaLYfelW1ytnGQOvB7ivl+2RD1xQvJTbi8I9gBjzcga7tDZVPyaxpl10YTfJt3BrYXR18KDw==}
@@ -1209,6 +1209,13 @@ snapshots:
 
   '@ioredis/commands@1.10.0': {}
 
+  '@metatron/sdk@0.7.0(hono@4.12.23)(react@19.2.7)':
+    dependencies:
+      zod: 4.4.3
+    optionalDependencies:
+      hono: 4.12.23
+      react: 19.2.7
+
   '@napi-rs/wasm-runtime@1.1.4(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)':
     dependencies:
       '@emnapi/core': 1.10.0
@@ -1268,13 +1275,6 @@ snapshots:
     optional: true
 
   '@rolldown/pluginutils@1.0.1': {}
-
-  '@titanium-games/sdk@0.7.0(hono@4.12.23)(react@19.2.7)':
-    dependencies:
-      zod: 4.4.3
-    optionalDependencies:
-      hono: 4.12.23
-      react: 19.2.7
 
   '@turbo/darwin-64@2.9.16':
     optional: true

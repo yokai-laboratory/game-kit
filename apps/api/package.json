@@ -15,7 +15,7 @@
         "@game-kit/game-hosted-b658f0aa": "workspace:*",
         "@hono/node-server": "2.0.4",
         "@hono/node-ws": "1.3.1",
-        "@titanium-games/sdk": "0.7.0",
+        "@metatron/sdk": "0.7.0",
         "better-sqlite3": "12.10.0",
         "dotenv": "17.4.2",
         "drizzle-orm": "0.45.2",
