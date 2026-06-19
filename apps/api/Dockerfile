@@ -4,7 +4,7 @@
 #
 # Build context is the REPO ROOT (see deploy/docker-compose.yml).
 #
-# SDK NOTE: `@titanium-games/sdk` resolves from the registry in .npmrc (default: a local Verdaccio).
+# SDK NOTE: `@metatron/sdk` resolves from the registry in .npmrc (default: a local Verdaccio).
 # The build must be able to reach it. On a VPS, either run Verdaccio and build with host networking
 # (compose sets `network: host` for this build) or publish the SDK to a registry the build can see
 # and override via the NPM_CONFIG_REGISTRY build arg / a mounted .npmrc.
@@ -20,7 +20,7 @@ RUN apt-get update \
 RUN corepack enable
 WORKDIR /app
 
-# Public-registry override for everything except the @titanium-games scope (which .npmrc pins).
+# Public-registry override for everything except the @metatron scope (which .npmrc pins).
 ARG NPM_CONFIG_REGISTRY=https://registry.npmjs.org/
 
 COPY . .

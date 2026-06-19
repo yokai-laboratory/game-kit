@@ -24,7 +24,7 @@ bootstraps itself on first boot — there is no migration step.
 # on the VPS, in the repo:
 bash scripts/preflight-vps.sh                 # docker, ports 80/443, RAM/disk
 cp deploy/.env.example deploy/.env            # or: pnpm setup
-$EDITOR deploy/.env                           # DOMAIN, TTG keys, strong secrets
+$EDITOR deploy/.env                           # DOMAIN, TRON keys, strong secrets
 cd deploy
 docker compose --env-file .env up -d --build
 docker compose --env-file .env ps             # all healthy
@@ -33,7 +33,7 @@ curl -fsS https://<domain>/api/ready          # {"ok":true,"db":true}
 
 DNS for `DOMAIN` must point at the VPS before first request so Caddy can complete the ACME HTTP-01
 challenge. Register `OAUTH_REDIRECT_URI` (= `https://<domain>/api/auth/callback`) and your web origin
-(embed origin) on the TTG developer app.
+(embed origin) on the TRON developer app.
 
 ## Overlays
 
@@ -67,7 +67,7 @@ removes the external dependencies.
 
 ## The SDK at build time
 
-Image builds need `@titanium-games/sdk` from the registry in `.npmrc`. The api/web builds use
+Image builds need `@metatron/sdk` from the registry in `.npmrc`. The api/web builds use
 `network: host`, so a Verdaccio on the VPS at `localhost:4873` is reachable; or publish the SDK to a
 private registry and repoint the scope (and `NPM_CONFIG_REGISTRY` if your default registry changes
 too). See the root README's "SDK prerequisite".

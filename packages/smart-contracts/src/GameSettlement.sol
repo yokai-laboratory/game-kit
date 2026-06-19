@@ -5,13 +5,13 @@ pragma solidity 0.8.35;
 /// @notice EXAMPLE on-chain match-result attestor for the game-kit template. Replace or delete it.
 ///
 ///         This contract exists ONLY to show the shape of a game that needs its OWN custom
-///         on-chain logic beyond the Titanium Games (TTG) platform rails. It is a minimal
+///         on-chain logic beyond the Metatron (TRON) platform rails. It is a minimal
 ///         "result oracle": the game backend opens a head-to-head match between two players and
 ///         later attests the winner, leaving an immutable, indexable record on chain.
 ///
 ///         IMPORTANT -- DO NOT route real money through this example. Payments, pots, entry fees
-///         and prize distribution for a TTG game flow through the platform's CreditVault pots
-///         (see packages/smart-contracts in the titanium-games monorepo / the TTG SDK), which
+///         and prize distribution for a TRON game flow through the platform's CreditVault pots
+///         (see packages/smart-contracts in the metatron monorepo / the TRON SDK), which
 ///         handle escrow, fees, disputes and signed payouts. This contract deliberately holds no
 ///         funds; it is just an attestation/registry demo you can swap for whatever bespoke
 ///         logic your game actually needs (e.g. on-chain leaderboards, NFT mints, commit-reveal).
@@ -76,7 +76,7 @@ contract GameSettlement {
     }
 
     /// @notice Open a head-to-head match between two distinct players.
-    /// @param matchId Opaque id minted off chain (e.g. keccak256 of the TTG match id).
+    /// @param matchId Opaque id minted off chain (e.g. keccak256 of the TRON match id).
     /// @param playerA First player.
     /// @param playerB Second player.
     function openMatch(bytes32 matchId, address playerA, address playerB) external onlyOwner {

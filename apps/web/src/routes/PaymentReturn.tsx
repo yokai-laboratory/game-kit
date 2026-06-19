@@ -3,8 +3,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../core/auth";
 import { syncIntent } from "../core/use-charge";
 
-// Landing page after TTG's /pay redirect flow. The events socket + poll backstop are the primary path
-// to "intent completed"; this page just nudges TTG once (if we know the intent id) and bounces the
+// Landing page after TRON's /pay redirect flow. The events socket + poll backstop are the primary path
+// to "intent completed"; this page just nudges TRON once (if we know the intent id) and bounces the
 // user back to where they were — their room for a stake, the store for a purchase.
 export function PaymentReturn(): React.JSX.Element {
     const [params] = useSearchParams();

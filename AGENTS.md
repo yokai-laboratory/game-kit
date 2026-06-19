@@ -1,24 +1,24 @@
 # AGENTS.md — working in game-kit
 
-This repo is a **full-stack web3 game template** built on the Titanium Games (TTG) rails. It ships a
+This repo is a **full-stack web3 game template** built on the Metatron (TRON) rails. It ships a
 throwaway example game (coin-flip duel). Your job as an agent is usually one of: **(a) build a new
-game** by replacing the example, **(b) set up TTG keys**, or **(c) deploy to a VPS**. This file is
+game** by replacing the example, **(b) set up TRON keys**, or **(c) deploy to a VPS**. This file is
 the contract for doing that without breaking the reusable parts.
 
-## Platform documentation (TTG)
+## Platform documentation (TRON)
 
-This kit is a worked example of the Titanium Games platform flows — auth, payments, presence. When you
+This kit is a worked example of the Metatron platform flows — auth, payments, presence. When you
 need the **why** behind the integration (not just the kit's wiring), read the platform docs. They are
 built to be read by agents:
 
-- **Agents start here:** [`https://titaniumgames.gg/llms.txt`](https://titaniumgames.gg/llms.txt) — a
+- **Agents start here:** [`https://metatron.gg/llms.txt`](https://metatron.gg/llms.txt) — a
   machine-readable index of every guide, the SDK reference, the OpenAPI document, and this starter, in
   build order. Fetch it first to orient.
-- **Developer guides** (conceptual, build-a-game order): `https://titaniumgames.gg/docs` — register an
+- **Developer guides** (conceptual, build-a-game order): `https://metatron.gg/docs` — register an
   app → authentication → payments → webhooks/realtime → presence → ship.
-- **SDK reference** (the typed functions this kit calls): `https://titaniumgames.gg/sdk`.
-- **API reference / raw HTTP:** `https://titaniumgames.gg/reference` (interactive) and
-  `https://titaniumgames.gg/openapi.json` (the document the SDK is generated from).
+- **SDK reference** (the typed functions this kit calls): `https://metatron.gg/sdk`.
+- **API reference / raw HTTP:** `https://metatron.gg/reference` (interactive) and
+  `https://metatron.gg/openapi.json` (the document the SDK is generated from).
 
 Rule of thumb: the SDK is the integration surface (this kit uses it); reach for raw HTTP / OpenAPI only
 for something the SDK doesn't cover.
@@ -62,21 +62,21 @@ Delete `games/coinflip` (and its two registry entries) once your game works.
 
 ## Commands
 
-- `pnpm install` — **requires the `@titanium-games/sdk` registry** (see below).
+- `pnpm install` — **requires the `@metatron/sdk` registry** (see below).
 - `pnpm typecheck` / `pnpm lint` / `pnpm build` — across the workspace (turbo).
 - `./scripts/dev.sh` — Postgres+Redis in Docker, migrate, then api+web with hot reload.
-- `pnpm setup` — wire TTG OAuth keys + write env files (see the setup skill).
+- `pnpm setup` — wire TRON OAuth keys + write env files (see the setup skill).
 - `pnpm db:migrate` — idempotent schema bootstrap.
 
 ## Install prerequisite (read this before `pnpm install`)
 
-`@titanium-games/sdk` is **not on public npm** — `.npmrc` points the `@titanium-games` scope at a
-local Verdaccio (`http://localhost:4873`) that the titanium-games repo runs. Before installing:
+`@metatron/sdk` is **not on public npm** — `.npmrc` points the `@metatron` scope at a
+local Verdaccio (`http://localhost:4873`) that the metatron repo runs. Before installing:
 
 ```
-# in the titanium-games repo:
+# in the metatron repo:
 docker compose up -d verdaccio
-pnpm build --filter @titanium-games/sdk
+pnpm build --filter @metatron/sdk
 cd packages/sdk && pnpm publish --registry http://localhost:4873 --no-git-checks
 ```
 
@@ -91,7 +91,7 @@ networking (`network: host` on the build) — keep Verdaccio reachable during `d
 - **Horizontal scaling.** The API is stateless: state in Postgres, websocket fan-out via Redis
   pub/sub (`apps/api/src/realtime/hub.ts`). Any replica serves any socket. Scale with
   `docker compose up --scale api=N`; no sticky sessions.
-- **Money is TTG's.** Stakes/pots/payouts go through the TTG SDK (`charge`, `distributePot`,
+- **Money is TRON's.** Stakes/pots/payouts go through the TRON SDK (`charge`, `distributePot`,
   presence). This repo never holds funds. `packages/smart-contracts` is an *optional* scaffold for
   custom on-chain logic, not the payment path.
 - **Two payment shapes, one path.** A *pot stake* (rooms) escrows money and pays it back on settle; a

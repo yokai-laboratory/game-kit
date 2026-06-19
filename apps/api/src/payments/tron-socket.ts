@@ -1,9 +1,9 @@
 import { logger } from "../logger.js";
 import { onIntentResolved } from "../game/engine.js";
 import { applyIntentTransition, getIntent } from "./intents.js";
-import { ttgClient } from "./ttg-client.js";
+import { tronClient } from "./tron-client.js";
 
-// Long-lived subscriber to TTG's /oauth/payments/events channel -- the primary push surface for
+// Long-lived subscriber to TRON's /oauth/payments/events channel -- the primary push surface for
 // payment-intent lifecycle transitions. The SDK owns the connection lifecycle (handshake, the
 // {kind:"subscribed"} first frame, jittered backoff). The poll backstop covers events dropped in a
 // reconnect window. NOTE: with multiple API replicas, EVERY replica opens this socket and receives
@@ -27,16 +27,16 @@ type WebhookBody = {
     };
 };
 
-export type TtgEventsSocket = { readonly stop: () => void };
+export type TronEventsSocket = { readonly stop: () => void };
 
-export function startTtgEventsSocket(): TtgEventsSocket {
-    const subscriber = ttgClient.subscribeOauthPaymentEvents({
-        onOpen: () => logger.info("ttg events socket open"),
+export function startTronEventsSocket(): TronEventsSocket {
+    const subscriber = tronClient.subscribeOauthPaymentEvents({
+        onOpen: () => logger.info("tron events socket open"),
         onMessage: (body) => {
             void handleWebhookBody(body as WebhookBody);
         },
-        onClose: (error) => logger.warn({ code: error.code, reason: error.reason }, "ttg events socket closed"),
-        onError: (error) => logger.warn({ err: error.message }, "ttg events socket error"),
+        onClose: (error) => logger.warn({ code: error.code, reason: error.reason }, "tron events socket closed"),
+        onError: (error) => logger.warn({ err: error.message }, "tron events socket error"),
     });
     return { stop: () => subscriber.stop() };
 }
@@ -49,7 +49,7 @@ export async function handleWebhookBody(body: WebhookBody): Promise<void> {
 
     const existing = await getIntent(intent.intentId);
     if (!existing) {
-        logger.debug({ intentId: intent.intentId }, "ttg event for unknown intent");
+        logger.debug({ intentId: intent.intentId }, "tron event for unknown intent");
         return;
     }
     if (intent.status === "pending") {

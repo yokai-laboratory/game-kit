@@ -1,8 +1,8 @@
 import { useCallback, useState } from "react";
 
-// Drives the TTG /oauth/payments/charge flow from the web side. The API proxies the call
+// Drives the TRON /oauth/payments/charge flow from the web side. The API proxies the call
 // server-to-server with the user's stored bearer; the response tells us whether the charge
-// completed silently (offline auto-charge) or needs the user to confirm on TTG's /pay page.
+// completed silently (offline auto-charge) or needs the user to confirm on TRON's /pay page.
 
 export type ChargeStatus =
     | { kind: "idle" }
@@ -84,7 +84,7 @@ export function useCharge(): { status: ChargeStatus; charge: (roomId: string) =>
 
 // Same flow as useCharge, but for a one-way store purchase (POST /payments/purchase with a packId).
 // The response shape is identical -- completed (offline auto-charge: points already credited),
-// redirect (confirm on TTG, points credited on return), or monthly_limit_exceeded -- so the caller
+// redirect (confirm on TRON, points credited on return), or monthly_limit_exceeded -- so the caller
 // reuses ChargeStatus. On `completed` the caller should refresh the user (the balance changed).
 export function usePurchase(): { status: ChargeStatus; purchase: (packId: string) => Promise<void>; reset: () => void } {
     const [status, setStatus] = useState<ChargeStatus>({ kind: "idle" });
@@ -139,7 +139,7 @@ export function usePurchase(): { status: ChargeStatus; purchase: (packId: string
     return { status, purchase, reset };
 }
 
-// Used by /payment-return: ask the API to poll TTG once for the canonical intent state.
+// Used by /payment-return: ask the API to poll TRON once for the canonical intent state.
 export async function syncIntent(intentId: string): Promise<{
     intent: { id: string; roomId: string; status: "pending" | "completed" | "denied" | "expired" };
     changed: boolean;

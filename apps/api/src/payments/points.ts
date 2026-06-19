@@ -1,7 +1,7 @@
 import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { db, schema } from "../db/client.js";
 
-// The "store": one-way purchases that grant in-game points. This is the second shape of TTG payment
+// The "store": one-way purchases that grant in-game points. This is the second shape of TRON payment
 // in the kit, alongside pot stakes:
 //
 //   pot stake   -> money into a shared CreditVault pot, paid back out by distributePot on settle.
@@ -14,7 +14,7 @@ import { db, schema } from "../db/client.js";
 export interface PointPack {
     readonly id: string;
     readonly points: number;
-    // Plain ETH string (like a room's stakeEth); TTG converts to wei + USD at charge time.
+    // Plain ETH string (like a room's stakeEth); TRON converts to wei + USD at charge time.
     readonly priceEth: string;
     readonly title: string;
 }

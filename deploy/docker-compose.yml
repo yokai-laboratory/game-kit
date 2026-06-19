@@ -23,7 +23,7 @@ services:
         build:
             context: ..
             dockerfile: apps/api/Dockerfile
-            # Lets the build reach a Verdaccio running on the host for @titanium-games/sdk.
+            # Lets the build reach a Verdaccio running on the host for @metatron/sdk.
             network: host
             args:
                 NPM_CONFIG_REGISTRY: ${NPM_CONFIG_REGISTRY:-https://registry.npmjs.org/}

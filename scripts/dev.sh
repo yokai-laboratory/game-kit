@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Local dev: start the api + web with hot reload on the host. State is a single SQLite file
 # (apps/api/.env's SQLITE_PATH, default ./data/game-kit.sqlite), created on first boot -- no backing
-# containers and no migration step. The default path connects to nothing external except the ttg api.
+# containers and no migration step. The default path connects to nothing external except the tron api.
 # Ctrl-C stops the dev servers.
 set -euo pipefail
 

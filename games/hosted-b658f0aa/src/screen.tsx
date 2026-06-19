@@ -1,6 +1,6 @@
 import type { GameScreenProps } from "@game-kit/game-core";
 
-// Twenty-One Dash — ported from the hosted window.ttg screen to a game-kit React screen. Receives
+// Twenty-One Dash — ported from the hosted window.tron screen to a game-kit React screen. Receives
 // the redacted per-seat view + submitMove from the generic Room component. The hosted module's
 // view() broadcasts full state: { players: [hostUserId, guestUserId], total, turn, lastMover }.
 

@@ -38,7 +38,7 @@ export async function logout(): Promise<void> {
 }
 
 export interface PresenceConfig {
-    ttgApiOrigin: string;
+    tronApiOrigin: string;
     clientId: string;
 }
 

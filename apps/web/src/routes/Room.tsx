@@ -58,7 +58,7 @@ export function Room(): React.JSX.Element {
                             {view.room.stakeEth} ETH ≈ {usd(preflight.stake.usdCents)} ·{" "}
                             {preflight.derived.willChargeInstantly
                                 ? "will charge instantly"
-                                : "you'll confirm on Titanium Games"}
+                                : "you'll confirm on Metatron"}
                         </p>
                     )}
                     {preflight?.derived.willExceedCap && (

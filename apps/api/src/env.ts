@@ -24,21 +24,21 @@ const schema = z.object({
 
     SESSION_SECRET: z.string().min(16).default("dev-only-insecure-secret-change-me"),
 
-    // OAuth client -- Titanium Games is the identity provider. Obtain these from the TTG developer
+    // OAuth client -- Metatron is the identity provider. Obtain these from the TRON developer
     // dashboard (the setup skill walks you through it). client_secret is server-only.
-    OAUTH_PROVIDER_NAME: z.string().default("titanium-games"),
+    OAUTH_PROVIDER_NAME: z.string().default("metatron"),
     OAUTH_AUTHORIZE_URL: z.string().url(),
     OAUTH_TOKEN_URL: z.string().url(),
     OAUTH_USERINFO_URL: z.string().url(),
     OAUTH_CLIENT_ID: z.string(),
     OAUTH_CLIENT_SECRET: z.string(),
     OAUTH_REDIRECT_URI: z.string().url(),
-    // `payments:charge` is required so the API can debit users via TTG's app-initiated charge surface.
+    // `payments:charge` is required so the API can debit users via TRON's app-initiated charge surface.
     OAUTH_SCOPES: z.string().default("openid profile payments:charge"),
 
-    // Where TTG's API is reachable for server-to-server payment calls + the events socket.
-    TTG_API_ORIGIN: z.string().url(),
-    // Chain to charge against. Must be present in TTG's enabled-chains catalog.
+    // Where TRON's API is reachable for server-to-server payment calls + the events socket.
+    TRON_API_ORIGIN: z.string().url(),
+    // Chain to charge against. Must be present in TRON's enabled-chains catalog.
     PAYMENT_CHAIN: z.string(),
     // Token address. 0x000…0 for native ETH, any other 20-byte address for an ERC-20.
     PAYMENT_TOKEN: z.string().regex(/^0x[0-9a-fA-F]{40}$/u),
@@ -61,7 +61,7 @@ export const env = schema.parse({
     OAUTH_CLIENT_SECRET: process.env.OAUTH_CLIENT_SECRET,
     OAUTH_REDIRECT_URI: process.env.OAUTH_REDIRECT_URI,
     OAUTH_SCOPES: process.env.OAUTH_SCOPES,
-    TTG_API_ORIGIN: process.env.TTG_API_ORIGIN,
+    TRON_API_ORIGIN: process.env.TRON_API_ORIGIN,
     PAYMENT_CHAIN: process.env.PAYMENT_CHAIN,
     PAYMENT_TOKEN: process.env.PAYMENT_TOKEN,
     LOG_LEVEL: process.env.LOG_LEVEL,

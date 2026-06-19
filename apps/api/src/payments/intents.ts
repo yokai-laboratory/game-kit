@@ -14,8 +14,8 @@ export type RecordIntentInput = {
     chain: string;
     expiresAt: number;
     initialStatus: IntentStatusValue;
-    // Same key sent in TTG's Idempotency-Key header; stamped so a same-(room,user) re-click while
-    // the intent is still pending can reuse it and trigger TTG's replay path.
+    // Same key sent in TRON's Idempotency-Key header; stamped so a same-(room,user) re-click while
+    // the intent is still pending can reuse it and trigger TRON's replay path.
     idempotencyKey: string;
     // Purchases only: points to grant when the intent completes.
     creditPoints?: number | null;
@@ -50,7 +50,7 @@ export async function recordIntent(input: RecordIntentInput): Promise<IntentRow>
     return fetched;
 }
 
-// Idempotent transition driven by TTG events / polling. Returns the post-write row on an update,
+// Idempotent transition driven by TRON events / polling. Returns the post-write row on an update,
 // null when the row was already terminal. Uses a status='pending' guard so terminal rows are
 // immutable -- the one exception is a late tx_hash arriving after the row already flipped to
 // completed (the indexer reconciles the Paid event independently).
@@ -107,8 +107,8 @@ export async function getCompletedStakeIntents(roomId: string): Promise<readonly
         );
 }
 
-// Polling backstop -- pending intents past their TTG-side TTL. We don't flip them here; the caller
-// asks TTG for the canonical state and applies it.
+// Polling backstop -- pending intents past their TRON-side TTL. We don't flip them here; the caller
+// asks TRON for the canonical state and applies it.
 export async function listExpiredPendingIntents(input: { now: number; limit: number }): Promise<readonly IntentRow[]> {
     return db
         .select()

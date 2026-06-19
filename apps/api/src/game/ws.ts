@@ -3,7 +3,7 @@ import type { WSContext, WSEvents } from "hono/ws";
 import type { ClientMessage } from "@game-kit/game-core";
 import { loadSessionUser } from "../auth/session.js";
 import { logger } from "../logger.js";
-import { type PlayerPresence, type PlaySessionGameStatus, startGameHalfPresence } from "../presence/ttg-presence.js";
+import { type PlayerPresence, type PlaySessionGameStatus, startGameHalfPresence } from "../presence/tron-presence.js";
 import { type Conn, register, sendTo, unregister } from "../realtime/hub.js";
 import { applyInput, applyMove, buildRoomView, getRoomRow, GameError } from "./engine.js";
 import { ensureTicking } from "./ticker.js";

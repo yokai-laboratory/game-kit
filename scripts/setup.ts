@@ -7,16 +7,16 @@ import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// game-kit setup -- wires the Titanium Games OAuth client + writes env files.
+// game-kit setup -- wires the Metatron OAuth client + writes env files.
 //
 // Two paths (prefers API, falls back to guided paste):
-//   • API-driven: set TTG_DEV_TOKEN (a TTG developer access token) and this creates/uses an app via
-//     the TTG developer API, sets the redirect URI, and rotates a key automatically.
+//   • API-driven: set TRON_DEV_TOKEN (a TRON developer access token) and this creates/uses an app via
+//     the TRON developer API, sets the redirect URI, and rotates a key automatically.
 //   • Guided: otherwise it discovers the OAuth endpoints and prompts you to paste the client_id /
-//     client_secret from the TTG developer dashboard.
+//     client_secret from the TRON developer dashboard.
 //
 // Every prompt can be pre-answered with an env var so an agent can run it non-interactively, e.g.:
-//   TTG_API_ORIGIN=https://api.ttg.example DOMAIN=play.mygame.com \
+//   TRON_API_ORIGIN=https://api.tron.example DOMAIN=play.mygame.com \
 //   OAUTH_CLIENT_ID=... OAUTH_CLIENT_SECRET=... pnpm setup
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -46,7 +46,7 @@ function redact(key: string, value: string): string {
     return /secret|token|password/i.test(key) ? `${value.slice(0, 4)}…(${value.length} chars)` : value;
 }
 
-// Discover OAuth endpoints from the OIDC well-known doc, falling back to TTG's conventional paths.
+// Discover OAuth endpoints from the OIDC well-known doc, falling back to TRON's conventional paths.
 async function discoverEndpoints(origin: string): Promise<{ authorize: string; token: string; userinfo: string }> {
     const base = new URL(origin).origin;
     try {
@@ -73,7 +73,7 @@ async function discoverEndpoints(origin: string): Promise<{ authorize: string; t
     };
 }
 
-// Best-effort API-driven app provisioning. The exact request/response shape may differ across TTG
+// Best-effort API-driven app provisioning. The exact request/response shape may differ across TRON
 // API versions; on any mismatch we throw and the caller falls back to guided paste.
 async function provisionAppViaApi(input: {
     origin: string;
@@ -109,7 +109,7 @@ async function provisionAppViaApi(input: {
     const clientSecret = key.clientSecret ?? key.secret;
     if (!clientSecret) throw new Error("rotate key response missing secret");
 
-    console.log(`  created TTG app ${appId} and rotated a ${input.environment} key`);
+    console.log(`  created TRON app ${appId} and rotated a ${input.environment} key`);
     return { clientId, clientSecret };
 }
 
@@ -132,12 +132,12 @@ function writeIfAbsentOrConfirmed(path: string, content: string, force: boolean)
 async function main(): Promise<void> {
     console.log("\ngame-kit setup\n");
 
-    const ttgOrigin = await ask("Titanium Games API origin (TTG_API_ORIGIN)", "TTG_API_ORIGIN");
+    const tronOrigin = await ask("Metatron API origin (TRON_API_ORIGIN)", "TRON_API_ORIGIN");
     const domain = await ask("Public domain for production (DOMAIN), or 'localhost'", "DOMAIN", "localhost");
     const env = (await ask("Environment (development/production)", "GAMEKIT_ENV", "development")) as
         | "development"
         | "production";
-    const provider = process.env.OAUTH_PROVIDER_NAME ?? "titanium-games";
+    const provider = process.env.OAUTH_PROVIDER_NAME ?? "metatron";
     const paymentChain = await ask("Payment chain (PAYMENT_CHAIN)", "PAYMENT_CHAIN", "ethereum-sepolia");
     const paymentToken = await ask(
         "Payment token address (PAYMENT_TOKEN)",
@@ -145,7 +145,7 @@ async function main(): Promise<void> {
         "0x0000000000000000000000000000000000000000",
     );
 
-    const endpoints = await discoverEndpoints(ttgOrigin);
+    const endpoints = await discoverEndpoints(tronOrigin);
 
     // Redirect URI: prod goes through Caddy under /api; local dev hits the api directly.
     const isProd = env === "production" && domain !== "localhost";
@@ -157,12 +157,12 @@ async function main(): Promise<void> {
     // Credentials: API-driven if a dev token is available, else guided paste.
     let clientId: string;
     let clientSecret: string;
-    const devToken = process.env.TTG_DEV_TOKEN;
+    const devToken = process.env.TRON_DEV_TOKEN;
     if (devToken) {
         try {
-            console.log("\nProvisioning app via TTG developer API…");
+            console.log("\nProvisioning app via TRON developer API…");
             const result = await provisionAppViaApi({
-                origin: ttgOrigin,
+                origin: tronOrigin,
                 token: devToken,
                 name: process.env.GAMEKIT_APP_NAME ?? "game-kit",
                 redirectUri,
@@ -172,12 +172,12 @@ async function main(): Promise<void> {
             clientSecret = result.clientSecret;
         } catch (e) {
             console.log(`  ! API provisioning failed (${(e as Error).message}). Falling back to paste.`);
-            clientId = await ask("OAUTH_CLIENT_ID (from TTG dashboard)", "OAUTH_CLIENT_ID");
-            clientSecret = await ask("OAUTH_CLIENT_SECRET (from TTG dashboard)", "OAUTH_CLIENT_SECRET");
+            clientId = await ask("OAUTH_CLIENT_ID (from TRON dashboard)", "OAUTH_CLIENT_ID");
+            clientSecret = await ask("OAUTH_CLIENT_SECRET (from TRON dashboard)", "OAUTH_CLIENT_SECRET");
         }
     } else {
-        console.log("\nNo TTG_DEV_TOKEN set — guided setup.");
-        console.log("In the TTG developer dashboard: create an app, set its redirect URI to:");
+        console.log("\nNo TRON_DEV_TOKEN set — guided setup.");
+        console.log("In the TRON developer dashboard: create an app, set its redirect URI to:");
         console.log(`    ${redirectUri}`);
         console.log("then generate a key and paste the values below.\n");
         clientId = await ask("OAUTH_CLIENT_ID", "OAUTH_CLIENT_ID");
@@ -196,7 +196,7 @@ async function main(): Promise<void> {
         OAUTH_CLIENT_SECRET: clientSecret,
         OAUTH_REDIRECT_URI: redirectUri,
         OAUTH_SCOPES: process.env.OAUTH_SCOPES ?? "openid profile payments:charge",
-        TTG_API_ORIGIN: new URL(ttgOrigin).origin,
+        TRON_API_ORIGIN: new URL(tronOrigin).origin,
         PAYMENT_CHAIN: paymentChain,
         PAYMENT_TOKEN: paymentToken,
         SESSION_SECRET: sessionSecret,
@@ -242,7 +242,7 @@ async function main(): Promise<void> {
     console.log("\nDone. Next:");
     console.log("  • local dev:  ./scripts/dev.sh");
     console.log("  • deploy:     cd deploy && docker compose --env-file .env up -d --build");
-    console.log(`  • make sure ${redirectUri} is registered as a redirect URI on your TTG app.\n`);
+    console.log(`  • make sure ${redirectUri} is registered as a redirect URI on your TRON app.\n`);
 
     rl.close();
 }

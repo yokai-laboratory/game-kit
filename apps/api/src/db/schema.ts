@@ -11,8 +11,8 @@ export const users = sqliteTable("users", {
     providerSub: text("provider_sub").notNull().unique(),
     displayName: text("display_name").notNull(),
     email: text("email"),
-    // In-game points balance. A demo of soft currency / inventory bought via one-way TTG charges
-    // (see the store purchase flow). Lives here, not on TTG: TTG custodies real money; points are
+    // In-game points balance. A demo of soft currency / inventory bought via one-way TRON charges
+    // (see the store purchase flow). Lives here, not on TRON: TRON custodies real money; points are
     // app state. Real inventory would be its own table -- one integer keeps the example legible.
     points: integer("points").notNull().default(0),
     createdAt: integer("created_at").notNull(),
@@ -31,7 +31,7 @@ export const sessions = sqliteTable(
     (t) => [index("sessions_user_idx").on(t.userId)],
 );
 
-// Bearer access token issued by TTG at OAuth callback. Persisted because the app-initiated charge
+// Bearer access token issued by TRON at OAuth callback. Persisted because the app-initiated charge
 // flow needs the user's bearer to debit them from request paths that don't carry the raw token
 // (the events socket, the poll backstop). One row per user; re-auth overwrites via upsert.
 export const oauthAccessTokens = sqliteTable("oauth_access_tokens", {
@@ -61,7 +61,7 @@ export const rooms = sqliteTable(
         resultKind: text("result_kind").$type<RoomResult["kind"]>().notNull().default("pending"),
         winnerUserId: text("winner_user_id").references(() => users.id),
         // On-chain CreditVault pot (0x-prefixed bytes16 hex), minted at room creation. Both players
-        // stake into it; the winner (or both, on a draw) are paid via TTG's signed distributePot.
+        // stake into it; the winner (or both, on a draw) are paid via TRON's signed distributePot.
         potId: text("pot_id"),
         // The GameModule's persisted state blob. Generic on purpose.
         state: text("state", { mode: "json" }).$type<unknown>().notNull(),
@@ -78,9 +78,9 @@ export const rooms = sqliteTable(
     ],
 );
 
-// API-side mirror of TTG's oauth_payment_intent for every charge this game initiates. Cached so the
+// API-side mirror of TRON's oauth_payment_intent for every charge this game initiates. Cached so the
 // engine can answer "has user X paid for room Y?" (or "has this purchase settled?") without
-// round-tripping TTG. Status is driven by TTG's push (events socket) with the poll backstop as
+// round-tripping TRON. Status is driven by TRON's push (events socket) with the poll backstop as
 // recovery. Two shapes share this table, told apart by `kind`:
 //   - "stake"    -> a pot stake; `roomId` is set; completion advances the room.
 //   - "purchase" -> a one-way store buy; `roomId` is null; completion credits `creditPoints`.

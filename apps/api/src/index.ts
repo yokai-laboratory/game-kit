@@ -8,7 +8,7 @@ import { authRoutes } from "./auth/oauth.js";
 import { loadSessionUser } from "./auth/session.js";
 import { roomsRoutes } from "./rooms/routes.js";
 import { paymentsRoutes } from "./payments/routes.js";
-import { startTtgEventsSocket } from "./payments/ttg-socket.js";
+import { startTronEventsSocket } from "./payments/tron-socket.js";
 import { startPollBackstop } from "./payments/poll-backstop.js";
 import { roomWsHandler } from "./game/ws.js";
 import { buildRoomView, setRealtimeWaker } from "./game/engine.js";
@@ -47,10 +47,10 @@ app.get("/me", async (c) => {
     return c.json({ user });
 });
 
-// Active-play presence: hands the web app the TTG api origin + our public client_id so it can mount
-// TTG's origin-isolated presence widget. Neither value is secret.
+// Active-play presence: hands the web app the TRON api origin + our public client_id so it can mount
+// TRON's origin-isolated presence widget. Neither value is secret.
 app.get("/presence/config", (c) =>
-    c.json({ ttgApiOrigin: new URL(env.TTG_API_ORIGIN).origin, clientId: env.OAUTH_CLIENT_ID }),
+    c.json({ tronApiOrigin: new URL(env.TRON_API_ORIGIN).origin, clientId: env.OAUTH_CLIENT_ID }),
 );
 
 const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app });
@@ -74,7 +74,7 @@ const server = serve({ fetch: app.fetch, port: env.API_PORT }, (info) => {
 injectWebSocket(server);
 
 // Background payment subscribers: the live events socket + the polling backstop.
-startTtgEventsSocket();
+startTronEventsSocket();
 startPollBackstop();
 
 // Graceful shutdown so the load balancer drains us cleanly on a rolling deploy.
