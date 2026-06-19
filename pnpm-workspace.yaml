@@ -1,9 +1,11 @@
 packages:
-    - "apps/*"
-    - "packages/*"
-    - "games/*"
+  - "apps/*"
+  - "packages/*"
+  - "games/*"
 
-# better-sqlite3 is NOT used (this template runs on Postgres). The native builds we do allow:
+# Native builds we allow (pnpm blocks postinstall build scripts by default):
+#   - better-sqlite3: its native binding is required for the SQLite driver to load.
 #   - esbuild: bundled via Vite's optionalDependencies; listing it silences the strictDepBuilds warning.
 allowBuilds:
-    esbuild: true
+  better-sqlite3: true
+  esbuild: true

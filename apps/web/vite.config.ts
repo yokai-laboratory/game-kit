@@ -6,11 +6,14 @@ import react from "@vitejs/plugin-react";
 // app code only ever calls relative /api and /ws paths regardless of environment.
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd(), "");
-    const api = env.VITE_API_ORIGIN ?? "http://localhost:8787";
+    const api = env.VITE_API_ORIGIN ?? "http://localhost:8788";
+    // game-kit's web defaults to 5274 (and the api to 8788) so it coexists with the sibling games
+    // on one machine — hilow owns 5273/8787. Override per-checkout via WEB_PORT if needed.
+    const port = Number(env.WEB_PORT) || 5274;
     return {
         plugins: [react()],
         server: {
-            port: 5273,
+            port,
             proxy: {
                 "/api": {
                     target: api,

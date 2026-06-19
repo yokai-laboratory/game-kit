@@ -2,59 +2,22 @@
 #
 #   caddy   : TLS + single-origin routing (80/443)
 #   web     : static SPA (nginx)
-#   api     : Hono server (stateless, scale with --scale api=N)
-#   migrate : one-shot schema bootstrap, runs before api
-#   postgres: durable game/room/payment state
-#   redis   : websocket fan-out + cache
+#   api     : Hono server. State is a single SQLite file on the `sqlite_data` volume.
+#
+# Persistence is SQLite (one file on disk) and the realtime fan-out is in-process, so this is a
+# single-machine stack with no external backing services. `--scale api=N` no longer works as-is:
+# a single-file SQLite db can't be shared across replicas, and the in-process backplane/tick-lease
+# only dedupe within one process. To scale the API tier horizontally, re-enable the swappable
+# Redis seams (set REDIS_URL -> Redis backplane + tick lease, see realtime/hub.ts + game/ticker.ts)
+# AND move persistence to a shared Postgres -- both were the original design and can be added back.
 #
 # Usage (from deploy/):  docker compose --env-file .env up -d --build
-# Scale the API:         docker compose --env-file .env up -d --scale api=3
 # Optional overlays:     -f docker-compose.yml -f docker-compose.observability.yml   (Grafana/OTel)
 #                        -f docker-compose.yml -f docker-compose.anvil.yml           (local chain)
 
 name: game-kit
 
 services:
-    postgres:
-        image: postgres:18-alpine
-        restart: unless-stopped
-        environment:
-            POSTGRES_USER: ${POSTGRES_USER:-gamekit}
-            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gamekit}
-            POSTGRES_DB: ${POSTGRES_DB:-gamekit}
-        volumes:
-            # Postgres 18+ wants the data volume at /var/lib/postgresql (not /data).
-            - pg_data:/var/lib/postgresql
-        healthcheck:
-            test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gamekit} -d ${POSTGRES_DB:-gamekit}"]
-            interval: 5s
-            timeout: 5s
-            retries: 20
-        # Not published to the host by default -- only the api/migrate containers reach it.
-
-    redis:
-        image: redis:8-alpine
-        restart: unless-stopped
-        command: ["redis-server", "--appendonly", "yes"]
-        volumes:
-            - redis_data:/data
-        healthcheck:
-            test: ["CMD", "redis-cli", "ping"]
-            interval: 5s
-            timeout: 5s
-            retries: 20
-
-    migrate:
-        image: game-kit-api:local
-        env_file: .env
-        environment:
-            DATABASE_URL: ${DATABASE_URL}
-        depends_on:
-            postgres:
-                condition: service_healthy
-        command: ["pnpm", "--filter", "@game-kit/api", "run", "db:migrate"]
-        restart: "no"
-
     api:
         image: game-kit-api:local
         build:
@@ -66,13 +29,11 @@ services:
                 NPM_CONFIG_REGISTRY: ${NPM_CONFIG_REGISTRY:-https://registry.npmjs.org/}
         restart: unless-stopped
         env_file: .env
-        depends_on:
-            postgres:
-                condition: service_healthy
-            redis:
-                condition: service_healthy
-            migrate:
-                condition: service_completed_successfully
+        environment:
+            # Persist the SQLite file on the named volume so it survives container recreation.
+            SQLITE_PATH: /data/game-kit.sqlite
+        volumes:
+            - sqlite_data:/data
         healthcheck:
             test:
                 [
@@ -122,7 +83,6 @@ services:
             - web
 
 volumes:
-    pg_data:
-    redis_data:
+    sqlite_data:
     caddy_data:
     caddy_config:

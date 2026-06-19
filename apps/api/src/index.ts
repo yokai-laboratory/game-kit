@@ -15,7 +15,6 @@ import { buildRoomView, setRealtimeWaker } from "./game/engine.js";
 import { ensureTicking } from "./game/ticker.js";
 import { setViewBuilder, startRealtimeHub } from "./realtime/hub.js";
 import { pingDb } from "./db/client.js";
-import { pingRedis } from "./redis.js";
 
 const app = new Hono();
 
@@ -30,11 +29,13 @@ app.use(
 // Liveness: process is up. Used by the container healthcheck + Caddy upstream check.
 app.get("/health", (c) => c.json({ ok: true }));
 
-// Readiness: shared deps reachable. Caddy/orchestrators gate traffic on this.
+// Readiness: persistence reachable. Caddy/orchestrators gate traffic on this. The single-machine
+// default has no external deps beyond the SQLite file, so the DB ping is the whole check. (When the
+// Redis backplane is enabled for scale-out it self-heals on reconnect; it isn't part of readiness.)
 app.get("/ready", async (c) => {
-    const [db, redis] = await Promise.all([pingDb(), pingRedis()]);
-    const ok = db && redis;
-    return c.json({ ok, db, redis }, ok ? 200 : 503);
+    const db = await pingDb();
+    const ok = db;
+    return c.json({ ok, db }, ok ? 200 : 503);
 });
 
 app.route("/auth", authRoutes);
