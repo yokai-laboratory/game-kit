@@ -64,9 +64,16 @@ Delete `games/coinflip` (and its two registry entries) once your game works.
 
 - `pnpm install` — installs from public npm; `@metatrongg/sdk` is published there, no special registry.
 - `pnpm typecheck` / `pnpm lint` / `pnpm build` — across the workspace (turbo).
-- `./scripts/dev.sh` — Postgres+Redis in Docker, migrate, then api+web with hot reload.
-- `pnpm setup` — wire TRON OAuth keys + write env files (see the setup skill).
-- `pnpm db:migrate` — idempotent schema bootstrap.
+- `./scripts/dev.sh` — api + web with hot reload against the Postgres at `DATABASE_URL` and your
+  Metatron app. **Provide the Postgres yourself** (a local `postgres:16` container, or any reachable
+  instance) — `dev.sh` does not start one. The schema auto-bootstraps on first boot
+  (`CREATE TABLE IF NOT EXISTS` in `apps/api/src/db/client.ts`); there is no migrate step or command.
+  Redis is optional — set `REDIS_URL` only to scale past a single api replica.
+- `pnpm setup` — provision your Metatron OAuth app + write env files (see the setup skill). It reaches
+  Metatron **only through Metatron's developer surface** (the MCP / developer dashboard / developer
+  REST API under `/me/developer/*`) — game-kit is an external consumer of Metatron, never a peer with
+  source or DB access. Anything it needs from Metatron (an app, a client key, redirect URIs, a payout
+  address) is requested through that surface.
 
 The SDK (`@metatrongg/sdk`) is published to the **public npm registry**, so a plain `pnpm install`
 resolves it — no Verdaccio, no scope pin, and Docker builds need no host networking for it.
@@ -100,6 +107,13 @@ resolves it — no Verdaccio, no scope pin, and Docker builds need no host netwo
 
 ## Deploy
 
-See the deploy skill and `deploy/README.md`. TL;DR on the VPS: `scripts/preflight-vps.sh` →
-`cp deploy/.env.example deploy/.env` (or `pnpm setup`) → `cd deploy && docker compose --env-file .env
-up -d --build` → check `https://<domain>` and `/ready`.
+Two paths, both deploying **web + api + Postgres + Redis** into infra **you own and pay for** —
+Metatron never hosts it. See the deploy skill and `deploy/README.md`.
+
+- **Railway (managed, default).** `deploy/railway/` is config-as-code for the creator's own Railway
+  workspace; the Metatron MCP `provision_stack` tool (metatron#349) instantiates it and auto-wires
+  `DATABASE_URL`/`REDIS_URL` (Railway plugins) + the `OAUTH_*`/`TRON_*`/`PAYMENT_*` values from your
+  Metatron developer app. Railway terminates TLS, so there is no Caddy.
+- **VPS / docker-compose (BYOC).** `scripts/preflight-vps.sh` → `cp deploy/.env.example deploy/.env`
+  (or `pnpm setup`) → `cd deploy && docker compose --env-file .env up -d --build` → check
+  `https://<domain>` and `/ready`. Caddy auto-provisions TLS here.

@@ -1,7 +1,9 @@
 # Deploying game-kit
 
-Single-VPS Docker Compose deploy. Target: ~8GB/4vCPU; the base stack fits in ~1.5GB. The **deploy
-skill** (`skills/deploy`) is the step-by-step agent runbook; this is the reference.
+Single-VPS Docker Compose deploy (the **BYOC** path). For the managed path — the same stack into your
+own Railway workspace via the Metatron MCP — see [`railway/README.md`](railway/README.md). Target:
+~8GB/4vCPU; the base stack fits in ~1.5GB. The **deploy skill** (`skills/deploy`) is the step-by-step
+agent runbook; this is the reference.
 
 ## Stack
 
@@ -11,12 +13,15 @@ skill** (`skills/deploy`) is the step-by-step agent runbook; this is the referen
 | --- | --- |
 | `caddy` | TLS (auto Let's Encrypt) + single-origin routing (80/443) |
 | `web` | static SPA (nginx) |
-| `api` | Hono server. State is a single SQLite file on the `sqlite_data` volume; realtime fan-out is in-process |
+| `api` | Hono server (stateless). Persists to `postgres`; realtime fan-out + tick lease via `redis` |
+| `postgres` | shared state on the `postgres_data` volume — the row-locked store the engine serializes on |
+| `redis` | websocket backplane + tick lease, so the `api` tier can run multiple replicas |
 
 Routing through Caddy: `/api/*` → api (prefix stripped), `/ws/*` → api (websocket), `/*` → web.
 
-This is a single-machine stack with no external backing services (no Postgres, no Redis). The schema
-bootstraps itself on first boot — there is no migration step.
+`api` is stateless — Postgres holds all state and Redis carries the realtime backplane — so the tier
+scales horizontally. The schema bootstraps itself on first boot (`CREATE TABLE IF NOT EXISTS`) — there
+is no migration step.
 
 ## Steps
 
@@ -53,17 +58,17 @@ docker compose --env-file .env up -d --build   # schema bootstraps idempotently 
 
 ## Scaling
 
-The default stack is single-machine: SQLite is one file (can't be shared across replicas) and the
-realtime backplane + tick lease are in-process (dedupe only within one process). So `--scale api=N`
-does **not** work as-is. To scale the API tier horizontally you must:
+The stack ships scale-ready: `api` is stateless (Postgres for state, Redis for the realtime backplane
++ tick lease), so you can run replicas behind Caddy with no sticky sessions — any replica serves any
+socket:
 
-1. Set `REDIS_URL` (re-enables the Redis backplane + tick lease — the swappable seams in
-   `apps/api/src/realtime/hub.ts` and `apps/api/src/game/ticker.ts`), and add a `redis` service.
-2. Move persistence off single-file SQLite to a shared database (e.g. Postgres) reachable by every
-   replica, and repoint the db client.
+```bash
+docker compose --env-file .env up -d --scale api=N
+```
 
-Both were the original design and are documented extension points; the single-machine default just
-removes the external dependencies.
+The compose wires `REDIS_URL`, so the Redis seams (`apps/api/src/realtime/hub.ts`,
+`apps/api/src/game/ticker.ts`) are already active. Unsetting `REDIS_URL` falls back to the in-process
+backplane — the single-replica path used in local dev, where `ioredis` is never imported.
 
 ## The SDK at build time
 
@@ -72,6 +77,6 @@ removes the external dependencies.
 
 ## Notes
 
-- `caddy_data` (certs) and `sqlite_data` (the SQLite file) are named volumes; back up `sqlite_data`
+- `caddy_data` (certs) and `postgres_data` (the database) are named volumes; back up `postgres_data`
   for durable state.
 - `deploy/.env` is gitignored — never commit it.

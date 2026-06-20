@@ -29,9 +29,9 @@ app.use(
 // Liveness: process is up. Used by the container healthcheck + Caddy upstream check.
 app.get("/health", (c) => c.json({ ok: true }));
 
-// Readiness: persistence reachable. Caddy/orchestrators gate traffic on this. The single-machine
-// default has no external deps beyond the SQLite file, so the DB ping is the whole check. (When the
-// Redis backplane is enabled for scale-out it self-heals on reconnect; it isn't part of readiness.)
+// Readiness: persistence reachable. Caddy/orchestrators gate traffic on this. Postgres is the only
+// hard dependency, so the DB ping is the whole check. (When the Redis backplane is enabled for
+// scale-out it self-heals on reconnect; it isn't part of readiness.)
 app.get("/ready", async (c) => {
     const db = await pingDb();
     const ok = db;
