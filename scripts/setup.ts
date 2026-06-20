@@ -7,13 +7,24 @@ import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// game-kit setup -- wires the Metatron OAuth client + writes env files.
+// game-kit setup -- provisions the Metatron OAuth app + writes env files.
 //
-// Two paths (prefers API, falls back to guided paste):
-//   • API-driven: set TRON_DEV_TOKEN (a TRON developer access token) and this creates/uses an app via
-//     the TRON developer API, sets the redirect URI, and rotates a key automatically.
+// game-kit is an EXTERNAL consumer of Metatron: it talks to Metatron only through Metatron's public
+// developer surface (the MCP / developer dashboard / the developer REST API under /me/developer/*),
+// never its source or database.
+//
+// One-time browser bootstrap (cannot be automated -- Metatron makes these session-only so a key can
+// never mint another key or accept a policy on your behalf):
+//   1. Sign in at the Metatron web app (local dev: http://localhost:5173).
+//   2. Become a developer (accept the developer policy) -- POST /me/developer/request.
+//   3. Mint a developer API key (a `tron_dev_…` token) in the dashboard.
+// Then this script does the rest. Two paths (prefers API, falls back to guided paste):
+//   • API-driven: set TRON_DEV_TOKEN to that `tron_dev_…` key. This creates an app, sets its redirect
+//     URI + embed origin, mints a client key, and verifies a payout address exists for PAYMENT_CHAIN.
+//     The payout address is your own Privy embedded wallet -- Metatron auto-seeds it when the app is
+//     created, so payments:charge is grantable without you pasting an address.
 //   • Guided: otherwise it discovers the OAuth endpoints and prompts you to paste the client_id /
-//     client_secret from the TRON developer dashboard.
+//     client_secret you created in the dashboard (set the redirect URI + a payout there too).
 //
 // Every prompt can be pre-answered with an env var so an agent can run it non-interactively, e.g.:
 //   TRON_API_ORIGIN=https://api.metatron.gg DOMAIN=play.mygame.com \
@@ -65,51 +76,97 @@ async function discoverEndpoints(origin: string): Promise<{ authorize: string; t
     } catch {
         // fall through to conventional paths
     }
-    console.log("  using conventional /oauth/* endpoints (well-known not available)");
+    console.log("  using Metatron's conventional endpoints (well-known not available)");
+    // Metatron serves authorize + token under /oauth, but userinfo at the root (/userinfo, not
+    // /oauth/userinfo). It does not publish /.well-known/openid-configuration, so this fallback is the
+    // path that actually runs -- keep it matched to Metatron's real routes.
     return {
         authorize: `${base}/oauth/authorize`,
         token: `${base}/oauth/token`,
-        userinfo: `${base}/oauth/userinfo`,
+        userinfo: `${base}/userinfo`,
     };
 }
 
-// Best-effort API-driven app provisioning. The exact request/response shape may differ across TRON
-// API versions; on any mismatch we throw and the caller falls back to guided paste.
+// API-driven app provisioning against Metatron's developer REST API. Mirrors the real route contracts:
+//   POST  /me/developer/apps                     { name }  -> { id }   (no `chains` => "legacy" path:
+//         Metatron auto-seeds the payout address per enabled chain from the dev's Privy embedded EOA)
+//   PATCH /me/developer/apps/{id}                 { redirectUris, embedOrigins } -> { id }
+//   PUT   /me/developer/apps/{id}/keys/{env}      (no body) -> { key: { clientId }, clientSecret }
+//   GET   /me/developer                           -> { apps: [{ id, payoutAddresses: [{ chain }] }] }
+// All four are reachable with a `tron_dev_…` developer API key. On any mismatch we throw and the
+// caller falls back to guided paste.
 async function provisionAppViaApi(input: {
     origin: string;
     token: string;
     name: string;
     redirectUri: string;
+    embedOrigin: string;
     environment: "development" | "production";
+    paymentChain: string;
 }): Promise<{ clientId: string; clientSecret: string }> {
     const base = new URL(input.origin).origin;
-    const headers = { authorization: `Bearer ${input.token}`, "content-type": "application/json" };
+    // Metatron gates /me/developer/* behind its data-purpose compliance check: every call must declare
+    // `x-data-purpose` (account-management for developer self-service) or it 400s before auth.
+    const headers = {
+        authorization: `Bearer ${input.token}`,
+        "content-type": "application/json",
+        "x-data-purpose": "account-management",
+    };
 
+    // 1. Create the app (name only). The empty-`chains` path makes Metatron seed the payout address
+    //    from the developer's own embedded wallet for each enabled chain.
     const createRes = await fetch(`${base}/me/developer/apps`, {
         method: "POST",
         headers,
-        body: JSON.stringify({
-            name: input.name,
-            environment: input.environment,
-            redirectUris: [input.redirectUri],
-        }),
+        body: JSON.stringify({ name: input.name }),
     });
     if (!createRes.ok) throw new Error(`create app failed: ${createRes.status} ${await createRes.text()}`);
-    const app = (await createRes.json()) as { id?: string; clientId?: string; client_id?: string };
-    const appId = app.id;
-    const clientId = app.clientId ?? app.client_id;
-    if (!appId || !clientId) throw new Error("create app response missing id/clientId");
+    const appId = ((await createRes.json()) as { id?: string }).id;
+    if (!appId) throw new Error("create app response missing id");
 
+    // 2. Set the redirect URI + embed origin (full-replace allowlists; not accepted at create time).
+    const patchRes = await fetch(`${base}/me/developer/apps/${appId}`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ redirectUris: [input.redirectUri], embedOrigins: [input.embedOrigin] }),
+    });
+    if (!patchRes.ok) throw new Error(`set redirect/embed failed: ${patchRes.status} ${await patchRes.text()}`);
+
+    // 3. Mint a client credential for the environment (raw secret returned exactly once).
     const keyRes = await fetch(`${base}/me/developer/apps/${appId}/keys/${input.environment}`, {
         method: "PUT",
         headers,
     });
-    if (!keyRes.ok) throw new Error(`rotate key failed: ${keyRes.status} ${await keyRes.text()}`);
-    const key = (await keyRes.json()) as { clientSecret?: string; secret?: string };
-    const clientSecret = key.clientSecret ?? key.secret;
-    if (!clientSecret) throw new Error("rotate key response missing secret");
+    if (!keyRes.ok) throw new Error(`mint key failed: ${keyRes.status} ${await keyRes.text()}`);
+    const key = (await keyRes.json()) as { key?: { clientId?: string }; clientSecret?: string };
+    const clientId = key.key?.clientId;
+    const clientSecret = key.clientSecret;
+    if (!clientId || !clientSecret) throw new Error("mint key response missing clientId/clientSecret");
 
-    console.log(`  created TRON app ${appId} and rotated a ${input.environment} key`);
+    console.log(`  created Metatron app ${appId}, set redirect URI, and minted a ${input.environment} key`);
+
+    // 4. Verify a payout address exists for PAYMENT_CHAIN. payments:charge is only grantable with one;
+    //    without it sign-in fails with invalid_scope. A miss usually means the dev has no embedded
+    //    wallet for that chain yet -- fixable by setting a payout in the dashboard.
+    try {
+        const meRes = await fetch(`${base}/me/developer`, { headers });
+        if (meRes.ok) {
+            const me = (await meRes.json()) as {
+                apps?: { id: string; payoutAddresses?: { chain: string }[] }[];
+            };
+            const app = me.apps?.find((a) => a.id === appId);
+            const hasPayout = app?.payoutAddresses?.some((p) => p.chain === input.paymentChain) ?? false;
+            if (!hasPayout) {
+                console.log(
+                    `  ! no payout address for chain "${input.paymentChain}" -- set one in the developer ` +
+                        `dashboard (your embedded wallet) or payments:charge will fail with invalid_scope.`,
+                );
+            }
+        }
+    } catch {
+        // verification is best-effort; never block setup on it
+    }
+
     return { clientId, clientSecret };
 }
 
@@ -147,12 +204,13 @@ async function main(): Promise<void> {
 
     const endpoints = await discoverEndpoints(tronOrigin);
 
-    // Redirect URI: prod goes through Caddy under /api; local dev hits the api directly.
+    // Redirect URI: prod goes through Caddy/Railway under /api; local dev hits the api directly.
+    // Local ports are 8788 (api) / 5274 (web) -- high-low owns the kit defaults 8787/5273.
     const isProd = env === "production" && domain !== "localhost";
     const redirectUri = isProd
         ? `https://${domain}/api/auth/callback`
-        : "http://localhost:8787/auth/callback";
-    const webOrigin = isProd ? `https://${domain}` : "http://localhost:5273";
+        : "http://localhost:8788/auth/callback";
+    const webOrigin = isProd ? `https://${domain}` : "http://localhost:5274";
 
     // Credentials: API-driven if a dev token is available, else guided paste.
     let clientId: string;
@@ -160,26 +218,32 @@ async function main(): Promise<void> {
     const devToken = process.env.TRON_DEV_TOKEN;
     if (devToken) {
         try {
-            console.log("\nProvisioning app via TRON developer API…");
+            console.log("\nProvisioning app via Metatron developer API…");
             const result = await provisionAppViaApi({
                 origin: tronOrigin,
                 token: devToken,
                 name: process.env.GAMEKIT_APP_NAME ?? "game-kit",
                 redirectUri,
+                embedOrigin: new URL(webOrigin).origin,
                 environment: env,
+                paymentChain,
             });
             clientId = result.clientId;
             clientSecret = result.clientSecret;
         } catch (e) {
             console.log(`  ! API provisioning failed (${(e as Error).message}). Falling back to paste.`);
-            clientId = await ask("OAUTH_CLIENT_ID (from TRON dashboard)", "OAUTH_CLIENT_ID");
-            clientSecret = await ask("OAUTH_CLIENT_SECRET (from TRON dashboard)", "OAUTH_CLIENT_SECRET");
+            clientId = await ask("OAUTH_CLIENT_ID (from Metatron dashboard)", "OAUTH_CLIENT_ID");
+            clientSecret = await ask("OAUTH_CLIENT_SECRET (from Metatron dashboard)", "OAUTH_CLIENT_SECRET");
         }
     } else {
         console.log("\nNo TRON_DEV_TOKEN set — guided setup.");
-        console.log("In the TRON developer dashboard: create an app, set its redirect URI to:");
-        console.log(`    ${redirectUri}`);
-        console.log("then generate a key and paste the values below.\n");
+        console.log("First, in the Metatron web app (local dev: http://localhost:5173): sign in, become a");
+        console.log("developer (accept the policy), then create an app. On that app:");
+        console.log(`    • set the redirect URI to:  ${redirectUri}`);
+        console.log(`    • set the embed origin to:  ${new URL(webOrigin).origin}`);
+        console.log(`    • make sure it has a payout address for "${paymentChain}" (your embedded wallet) —`);
+        console.log("      without one, payments:charge is refused with invalid_scope.");
+        console.log("Then generate a client key and paste the values below.\n");
         clientId = await ask("OAUTH_CLIENT_ID", "OAUTH_CLIENT_ID");
         clientSecret = await ask("OAUTH_CLIENT_SECRET", "OAUTH_CLIENT_SECRET");
     }
@@ -210,16 +274,18 @@ async function main(): Promise<void> {
         join(ROOT, "apps/api/.env"),
         renderEnv({
             NODE_ENV: "development",
-            API_PORT: "8787",
-            DATABASE_URL: "postgres://gamekit:gamekit@localhost:5432/gamekit",
-            REDIS_URL: "redis://localhost:6379",
+            API_PORT: "8788",
+            // Bring your own Postgres at this URL (dev.sh does not start one); schema auto-bootstraps.
+            DATABASE_URL: "postgres://postgres:postgres@localhost:5432/game_kit",
+            // REDIS_URL intentionally unset — single-replica local dev uses the in-process backplane.
             LOG_LEVEL: "info",
             ...common,
         }),
         force,
     );
 
-    // deploy/.env for the docker stack (service-name hosts).
+    // deploy/.env for the docker stack. The compose hardcodes the api's DATABASE_URL/REDIS_URL and the
+    // postgres service's user (postgres) + db (game_kit), so only POSTGRES_PASSWORD is wired from here.
     const pgPass = process.env.POSTGRES_PASSWORD ?? randomBytes(12).toString("hex");
     writeIfAbsentOrConfirmed(
         join(ROOT, "deploy/.env"),
@@ -227,11 +293,7 @@ async function main(): Promise<void> {
             NODE_ENV: "production",
             DOMAIN: domain,
             ACME_EMAIL: process.env.ACME_EMAIL ?? "",
-            POSTGRES_USER: "gamekit",
             POSTGRES_PASSWORD: pgPass,
-            POSTGRES_DB: "gamekit",
-            DATABASE_URL: `postgres://gamekit:${pgPass}@postgres:5432/gamekit`,
-            REDIS_URL: "redis://redis:6379",
             NPM_CONFIG_REGISTRY: process.env.NPM_CONFIG_REGISTRY ?? "https://registry.npmjs.org/",
             LOG_LEVEL: "info",
             ...common,
@@ -240,9 +302,10 @@ async function main(): Promise<void> {
     );
 
     console.log("\nDone. Next:");
-    console.log("  • local dev:  ./scripts/dev.sh");
-    console.log("  • deploy:     cd deploy && docker compose --env-file .env up -d --build");
-    console.log(`  • make sure ${redirectUri} is registered as a redirect URI on your TRON app.\n`);
+    console.log("  • local dev:  start a Postgres at DATABASE_URL, then ./scripts/dev.sh");
+    console.log("  • deploy:     cd deploy && docker compose --env-file .env up -d --build (or use Railway)");
+    console.log(`  • confirm ${redirectUri} is a redirect URI on your Metatron app,`);
+    console.log(`    and that the app has a payout address for "${paymentChain}" (else payments:charge fails).\n`);
 
     rl.close();
 }

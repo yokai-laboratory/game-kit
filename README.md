@@ -1,8 +1,8 @@
 # game-kit
 
 A **full-stack web3 game template** built on the [Metatron](https://github.com/yokai-laboratory/metatron)
-(TRON) identity + payment rails. Clone it, swap the example game for yours, and deploy to a small VPS
-with Docker Compose.
+(TRON) identity + payment rails. Clone it, swap the example game for yours, and deploy to your own
+Railway project (or a VPS with Docker Compose).
 
 > **Platform docs:** the integration this kit demonstrates is documented in full at
 > **[metatron.gg/docs](https://metatron.gg/docs)** (build-a-game guides),
@@ -52,16 +52,30 @@ generic engine drives any module through the lifecycle — **create → stake �
 
 ## Quickstart (local)
 
-Prereqs: Node 24, pnpm 11. No Docker needed locally — state is a single SQLite file and the
-realtime hub fans out in-process (see [Scaling](#scaling)). **And** the `@metatrongg/sdk`
-registry — see [SDK prerequisite](#sdk-prerequisite).
+Prereqs: Node 24, pnpm 11, and a reachable **Postgres** — game-kit persists to Postgres, and
+`dev.sh` runs the api+web but does **not** start a database (bring your own). The realtime hub fans
+out in-process by default, so **Redis is optional** (see [Scaling](#scaling)). You also need a
+Metatron app provisioned — `pnpm setup` does that through Metatron's developer surface (see
+[Provisioning](#provisioning-via-metatron)).
 
 ```bash
 pnpm install
-pnpm setup            # wire TRON OAuth keys + write env files (or see the setup skill)
-./scripts/dev.sh      # api + web with hot reload (SQLite on disk; no containers)
+# bring up a Postgres matching DATABASE_URL's default (postgres://postgres:postgres@localhost:5432/game_kit):
+docker run -d --name game-kit-pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=game_kit -p 5432:5432 postgres:16
+pnpm setup            # provision your Metatron app + write env files (or see the setup skill)
+./scripts/dev.sh      # api + web with hot reload (against Postgres + Metatron; schema auto-bootstraps)
 # open http://localhost:5274
 ```
+
+### Provisioning via Metatron
+
+game-kit is an **external consumer** of Metatron — it has no Metatron source or database access.
+Everything it needs (an OAuth app, a client key, redirect URIs, and a **payout address** for the chain
+it charges on) is requested through Metatron's **developer surface**: the Metatron MCP, the developer
+dashboard, or the developer REST API under `/me/developer/*`. `pnpm setup` automates this when given a
+developer token, or walks you through the dashboard otherwise. `payments:charge` is only granted once
+the app has a payout address for `PAYMENT_CHAIN`, so set one during provisioning or sign-in will fail
+with `invalid_scope`.
 
 ## Build your own game (5 steps)
 
@@ -76,9 +90,17 @@ pnpm setup            # wire TRON OAuth keys + write env files (or see the setup
 Then delete `games/coinflip` and its two registry entries. See
 [packages/game-core/README.md](packages/game-core/README.md) for the full interface walkthrough.
 
-## Deploy to a VPS
+## Deploy
 
-Target: one ~8GB/4vCPU box; the base stack fits in ~1.5GB. On the server:
+Both paths deploy **web + api + Postgres + Redis** into infra **you own and pay for** — Metatron never
+hosts it. Full runbook: [deploy/README.md](deploy/README.md) and the **deploy skill** (`skills/deploy`).
+
+**Railway (managed, default).** [`deploy/railway/`](deploy/railway/README.md) is config-as-code for
+your own Railway workspace. The Metatron MCP `provision_stack` tool (metatron#349) instantiates it and
+auto-wires `DATABASE_URL` / `REDIS_URL` (Railway plugins) plus the `OAUTH_*` / `TRON_*` / `PAYMENT_*`
+values from your Metatron developer app. Railway terminates TLS, so there is no Caddy.
+
+**VPS / docker-compose (BYOC).** One ~8GB/4vCPU box (the base stack fits in ~1.5GB):
 
 ```bash
 bash scripts/preflight-vps.sh          # checks docker, ports, RAM/disk
@@ -87,34 +109,32 @@ cd deploy && docker compose --env-file .env up -d --build
 # verify: curl -fsS https://<domain>/api/ready
 ```
 
-Caddy auto-provisions TLS once `DOMAIN` resolves to the box. Full runbook:
-[deploy/README.md](deploy/README.md) and the **deploy skill** (`skills/deploy`).
+Caddy auto-provisions TLS once `DOMAIN` resolves to the box.
 
 ### Scaling
 
-By default the API runs **single-machine, dependency-free**: state is a local SQLite file and the
-realtime socket hub + tick lease fan out **in-process** — no Postgres, no Redis. That's the right
-shape for one box and keeps local dev zero-infra.
+By default the API runs **single-replica**: state lives in **Postgres** and the realtime socket hub +
+tick lease fan out **in-process** — no Redis required. That's the right shape for one box.
 
-To scale horizontally, two seams flip on when you set **`REDIS_URL`**: the realtime hub switches to a
+To scale horizontally, one seam flips on when you set **`REDIS_URL`**: the realtime hub switches to a
 Redis pub/sub backplane and the tick loop to a Redis lease (`apps/api/src/realtime/hub.ts`,
-`apps/api/src/game/ticker.ts` — `ioredis` is lazy-loaded, so the single-node path never touches it).
-Pair that with a shared database (point persistence at a networked DB instead of the local SQLite
-file) and any replica can serve any socket behind a load balancer. The in-memory and Redis impls sit
-behind the same interfaces, so this is a config change, not a rewrite.
+`apps/api/src/game/ticker.ts` — `ioredis` is lazy-loaded, so the single-replica path never imports
+it). Postgres is already the shared store (moves serialize on a row-locked `SELECT … FOR UPDATE`), so
+any replica can serve any socket behind a load balancer. The in-process and Redis impls sit behind the
+same interfaces, so this is a config change, not a rewrite.
 
 ## Repo layout
 
 ```
 apps/
-  api/           Hono API: auth, payments, presence, generic engine, realtime socket hub (SQLite; Redis optional)
+  api/           Hono API: auth, payments, presence, generic engine, realtime socket hub (Postgres; Redis optional)
   web/           Vite + React SPA: lobby, room, charge/presence UI, game registry
 packages/
   game-core/     The GameModule interface + client/server wire protocol (isomorphic, zod-only)
   smart-contracts/  OPTIONAL Foundry scaffold for custom on-chain logic (TRON handles payments)
 games/
   coinflip/      The example game (scrap me): schema + module (logic) + screen (UI)
-deploy/          docker-compose (+ observability/anvil/dev overlays), Caddyfile, env example
+deploy/          railway/ (managed config-as-code) + docker-compose/Caddyfile (BYOC), env example
 scripts/         setup.ts (TRON keys), dev.sh, preflight-vps.sh
 skills/          agent runbooks: setup, deploy
 docs/            HOW-IT-WORKS.md — architecture deep-dive + the build-a-game agent workflow
