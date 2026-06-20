@@ -47,7 +47,7 @@ avail_gb=$(( ${avail_kb:-0} / 1024 / 1024 ))
 if [ "$avail_gb" -ge 5 ]; then ok "disk free on /: ${avail_gb}GB"; else warn "disk free on /: ${avail_gb}GB (images + volumes want a few GB)"; fi
 
 # git (to pull the repo)
-command -v git >/dev/null 2>&1 && ok "git present" || warn "git not installed (needed to clone the repo)"
+if command -v git >/dev/null 2>&1; then ok "git present"; else warn "git not installed (needed to clone the repo)"; fi
 
 echo
 if [ "$fail" -ne 0 ]; then
