@@ -25,12 +25,9 @@ jobs:
             - name: smart-contracts has no package.json (stays out of the workspace)
               run: test ! -f packages/smart-contracts/package.json
 
-    # Typecheck the workspace. Needs the @metatron/sdk registry, which isn't on public npm.
-    # Configure a repo variable SDK_REGISTRY (and secret SDK_NPM_TOKEN if it needs auth) pointing at
-    # your registry to enable this job; otherwise it's skipped so the template's CI stays green.
+    # Typecheck the workspace. @metatrongg/sdk is on public npm, so no special registry config.
     typecheck:
         runs-on: ubuntu-latest
-        if: ${{ vars.SDK_REGISTRY != '' }}
         steps:
             - uses: actions/checkout@v4
             - uses: pnpm/action-setup@v4
@@ -38,12 +35,5 @@ jobs:
               with:
                   node-version: 24
                   cache: pnpm
-            - name: point @metatron scope at the configured registry
-              run: |
-                  echo "@metatron:registry=${{ vars.SDK_REGISTRY }}" > .npmrc
-                  if [ -n "${{ secrets.SDK_NPM_TOKEN }}" ]; then
-                    reg="${{ vars.SDK_REGISTRY }}"; host="${reg#http*://}"
-                    echo "//${host}:_authToken=${{ secrets.SDK_NPM_TOKEN }}" >> .npmrc
-                  fi
             - run: pnpm install --frozen-lockfile=false
             - run: pnpm typecheck

@@ -46,11 +46,10 @@ export async function getUserPoints(userId: string): Promise<number> {
 // backstop, or the return-page sync -- credits exactly once; the rest no-op. Returns the buyer's new
 // balance when it credited, or null when there was nothing to do.
 export async function creditPurchaseIfCompleted(intentId: string): Promise<number | null> {
-    // better-sqlite3 transactions are synchronous: the callback runs to completion inside one
-    // BEGIN/COMMIT and the tx query builders return results directly (no await). The guarded UPDATE
-    // still claims-or-noops atomically, so the once-only credit semantics are unchanged.
-    return db.transaction((txn) => {
-        const claimed = txn
+    // The guarded UPDATE claims-or-noops atomically inside one BEGIN/COMMIT, so the once-only credit
+    // semantics hold no matter which completion path observes the intent first.
+    return db.transaction(async (txn) => {
+        const claimed = await txn
             .update(schema.oauthPaymentIntents)
             .set({ pointsCredited: true })
             .where(
@@ -62,16 +61,14 @@ export async function creditPurchaseIfCompleted(intentId: string): Promise<numbe
                     isNotNull(schema.oauthPaymentIntents.creditPoints),
                 ),
             )
-            .returning()
-            .all();
+            .returning();
         const row = claimed[0];
         if (!row || row.creditPoints === null) return null;
-        const updated = txn
+        const updated = await txn
             .update(schema.users)
             .set({ points: sql`${schema.users.points} + ${row.creditPoints}` })
             .where(eq(schema.users.id, row.userId))
-            .returning({ points: schema.users.points })
-            .all();
+            .returning({ points: schema.users.points });
         return updated[0]?.points ?? null;
     });
 }

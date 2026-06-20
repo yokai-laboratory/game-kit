@@ -36,3 +36,6 @@ packages/smart-contracts/lib/
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# harness-local agent adapter -- source of truth is AGENTS.md
+CLAUDE.md

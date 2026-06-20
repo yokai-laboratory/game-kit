@@ -16,12 +16,9 @@ bash scripts/preflight-vps.sh
 Resolve any ✗ before continuing. Common fixes: install Docker Engine + the compose plugin; free
 ports 80/443; add the user to the `docker` group.
 
-## 2. SDK availability
-`@metatron/sdk` must be resolvable during the image build (it's not on public npm). Options:
-- Run a Verdaccio with the SDK published, reachable at `http://localhost:4873` on the VPS (the api/web
-  builds use `network: host`, so localhost works), **or**
-- Publish the SDK to a private registry and set the `@metatron` scope in `.npmrc` to it (and
-  pass `NPM_CONFIG_REGISTRY` if your default registry also changes).
+## 2. SDK (no setup needed)
+`@metatrongg/sdk` is on the **public npm registry**, so the image build resolves it with a plain
+`pnpm install` — no Verdaccio, no private registry, no scope pin.
 
 ## 3. Configure env
 Either run the setup skill (`pnpm setup` with production values) or:
@@ -63,5 +60,5 @@ starts everything. Caddy provisions TLS on first request to `DOMAIN`.
 ## Troubleshooting
 - **TLS not issued:** DNS not pointing at the box yet, or port 80 blocked (Let's Encrypt HTTP-01).
 - **Sign-in fails:** redirect-URI mismatch between TRON app and `OAUTH_REDIRECT_URI`.
-- **Build can't find @metatron/sdk:** registry not reachable during build (see step 2).
+- **Build can't find @metatrongg/sdk:** registry not reachable during build (see step 2).
 - **api unhealthy:** check `DATABASE_URL`/`REDIS_URL` and that `migrate` succeeded.

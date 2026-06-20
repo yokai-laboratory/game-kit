@@ -62,26 +62,14 @@ Delete `games/coinflip` (and its two registry entries) once your game works.
 
 ## Commands
 
-- `pnpm install` — **requires the `@metatron/sdk` registry** (see below).
+- `pnpm install` — installs from public npm; `@metatrongg/sdk` is published there, no special registry.
 - `pnpm typecheck` / `pnpm lint` / `pnpm build` — across the workspace (turbo).
 - `./scripts/dev.sh` — Postgres+Redis in Docker, migrate, then api+web with hot reload.
 - `pnpm setup` — wire TRON OAuth keys + write env files (see the setup skill).
 - `pnpm db:migrate` — idempotent schema bootstrap.
 
-## Install prerequisite (read this before `pnpm install`)
-
-`@metatron/sdk` is **not on public npm** — `.npmrc` points the `@metatron` scope at a
-local Verdaccio (`http://localhost:4873`) that the metatron repo runs. Before installing:
-
-```
-# in the metatron repo:
-docker compose up -d verdaccio
-pnpm build --filter @metatron/sdk
-cd packages/sdk && pnpm publish --registry http://localhost:4873 --no-git-checks
-```
-
-If you host the SDK elsewhere, repoint the scope in `.npmrc`. Docker builds reach it via host
-networking (`network: host` on the build) — keep Verdaccio reachable during `docker compose build`.
+The SDK (`@metatrongg/sdk`) is published to the **public npm registry**, so a plain `pnpm install`
+resolves it — no Verdaccio, no scope pin, and Docker builds need no host networking for it.
 
 ## Architecture notes (so you don't fight the design)
 

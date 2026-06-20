@@ -1,4 +1,4 @@
-import type { PlaySessionGameStatus } from "@metatron/sdk/node";
+import type { PlaySessionGameStatus } from "@metatrongg/sdk/node";
 import { eq } from "drizzle-orm";
 
 import { db, schema } from "../db/client.js";

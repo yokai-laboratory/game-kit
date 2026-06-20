@@ -11,10 +11,11 @@ const schema = z.object({
     // Public origin of the web app -- used for CORS, OAuth redirect, and charge return URIs.
     WEB_ORIGIN: z.string().default("http://localhost:5274"),
 
-    // Persistence: a single SQLite file on disk. Zero external dependencies -- the default
-    // single-machine path connects to nothing but the file. For horizontal scale-out, move to a
-    // shared Postgres + the Redis backplane below.
-    SQLITE_PATH: z.string().default("./data/game-kit.sqlite"),
+    // Persistence: shared Postgres. The realtime engine serializes on row locks (`SELECT ... FOR
+    // UPDATE`) here, so the API tier can run multiple replicas alongside the Redis backplane + tick
+    // lease below. Locally, point this at a Postgres container (see deploy/); in production it is the
+    // managed Postgres URL.
+    DATABASE_URL: z.string().url().default("postgres://postgres:postgres@localhost:5432/game_kit"),
 
     // OPTIONAL scale-out switch. Unset (the default) -> in-process realtime backplane + tick lease,
     // and `ioredis` is never imported. Set it -> Redis-backed backplane + lease so the API tier can
@@ -50,7 +51,7 @@ export const env = schema.parse({
     NODE_ENV: process.env.NODE_ENV,
     API_PORT: process.env.API_PORT,
     WEB_ORIGIN: process.env.WEB_ORIGIN,
-    SQLITE_PATH: process.env.SQLITE_PATH,
+    DATABASE_URL: process.env.DATABASE_URL,
     REDIS_URL: process.env.REDIS_URL,
     SESSION_SECRET: process.env.SESSION_SECRET,
     OAUTH_PROVIDER_NAME: process.env.OAUTH_PROVIDER_NAME,

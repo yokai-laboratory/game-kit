@@ -1,19 +1,21 @@
-# game-kit base stack -- everything needed to run on a single VPS. Fits comfortably in ~1.5GB RAM.
+# game-kit base stack -- everything needed to run on a single VPS or any Docker host (the BYOC path).
 #
-#   caddy   : TLS + single-origin routing (80/443)
-#   web     : static SPA (nginx)
-#   api     : Hono server. State is a single SQLite file on the `sqlite_data` volume.
+#   caddy    : TLS + single-origin routing (80/443)
+#   web      : static SPA (nginx)
+#   api      : Hono server, stateless. Persists to Postgres; realtime fan-out + tick lease via Redis.
+#   postgres : shared state (the api serializes the realtime engine on row locks here)
+#   redis    : WebSocket backplane + tick lease, so the api tier can scale to multiple replicas
 #
-# Persistence is SQLite (one file on disk) and the realtime fan-out is in-process, so this is a
-# single-machine stack with no external backing services. `--scale api=N` no longer works as-is:
-# a single-file SQLite db can't be shared across replicas, and the in-process backplane/tick-lease
-# only dedupe within one process. To scale the API tier horizontally, re-enable the swappable
-# Redis seams (set REDIS_URL -> Redis backplane + tick lease, see realtime/hub.ts + game/ticker.ts)
-# AND move persistence to a shared Postgres -- both were the original design and can be added back.
+# Because state lives in Postgres and the realtime seams go through Redis, the api tier is horizontally
+# scalable: `docker compose up -d --scale api=N` runs N replicas behind Caddy with no sticky sessions.
 #
 # Usage (from deploy/):  docker compose --env-file .env up -d --build
 # Optional overlays:     -f docker-compose.yml -f docker-compose.observability.yml   (Grafana/OTel)
 #                        -f docker-compose.yml -f docker-compose.anvil.yml           (local chain)
+#
+# On Railway (the managed/automated path) you do NOT use this file: the Railway template provisions
+# web + api + Postgres + Redis as managed services and terminates TLS for you (no Caddy). See
+# deploy/railway/.
 
 name: game-kit
 
@@ -23,17 +25,22 @@ services:
         build:
             context: ..
             dockerfile: apps/api/Dockerfile
-            # Lets the build reach a Verdaccio running on the host for @metatron/sdk.
+            # Lets the build reach a Verdaccio running on the host for @metatrongg/sdk.
             network: host
             args:
                 NPM_CONFIG_REGISTRY: ${NPM_CONFIG_REGISTRY:-https://registry.npmjs.org/}
         restart: unless-stopped
         env_file: .env
         environment:
-            # Persist the SQLite file on the named volume so it survives container recreation.
-            SQLITE_PATH: /data/game-kit.sqlite
-        volumes:
-            - sqlite_data:/data
+            # Point the api at the in-network Postgres + Redis. These override anything in .env so the
+            # service hostnames are always correct inside the compose network.
+            DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/game_kit
+            REDIS_URL: redis://redis:6379
+        depends_on:
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
         healthcheck:
             test:
                 [
@@ -65,6 +72,30 @@ services:
         expose:
             - "80"
 
+    postgres:
+        image: postgres:16-alpine
+        restart: unless-stopped
+        environment:
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+            POSTGRES_DB: game_kit
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U postgres -d game_kit"]
+            interval: 10s
+            timeout: 5s
+            retries: 6
+
+    redis:
+        image: redis:7-alpine
+        restart: unless-stopped
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 10s
+            timeout: 5s
+            retries: 6
+
     caddy:
         image: caddy:2-alpine
         restart: unless-stopped
@@ -83,6 +114,6 @@ services:
             - web
 
 volumes:
-    sqlite_data:
+    postgres_data:
     caddy_data:
     caddy_config:

@@ -1,12 +1,16 @@
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { bigint, boolean, index, integer, jsonb, pgTable, text } from "drizzle-orm/pg-core";
 import type { RoomResult, RoomStatus, Seat } from "@game-kit/game-core";
 
-// SQLite schema (Drizzle sqlite-core). Timestamps are epoch-ms stored as integer so the code
-// reads/writes plain `Date.now()` numbers -- no Date<->column juggling. The schema is GENERIC:
-// there is no per-game table. A room's game state lives in `rooms.state` (a JSON text blob), whose
-// shape is owned by the active GameModule. Swapping games never touches this file.
+// Postgres schema (Drizzle pg-core). Timestamps are epoch-ms stored as `bigint` in `number` mode so
+// the code reads/writes plain `Date.now()` numbers -- no Date<->column juggling (epoch-ms fits well
+// inside JS's safe-integer range). The schema is GENERIC: there is no per-game table. A room's game
+// state lives in `rooms.state` (a jsonb blob), whose shape is owned by the active GameModule.
+// Swapping games never touches this file.
 
-export const users = sqliteTable("users", {
+// Epoch-ms helper: a 64-bit integer column surfaced to JS as a `number`.
+const epochMs = (name: string) => bigint(name, { mode: "number" });
+
+export const users = pgTable("users", {
     id: text("id").primaryKey(),
     providerSub: text("provider_sub").notNull().unique(),
     displayName: text("display_name").notNull(),
@@ -15,18 +19,18 @@ export const users = sqliteTable("users", {
     // (see the store purchase flow). Lives here, not on TRON: TRON custodies real money; points are
     // app state. Real inventory would be its own table -- one integer keeps the example legible.
     points: integer("points").notNull().default(0),
-    createdAt: integer("created_at").notNull(),
+    createdAt: epochMs("created_at").notNull(),
 });
 
-export const sessions = sqliteTable(
+export const sessions = pgTable(
     "sessions",
     {
         id: text("id").primaryKey(),
         userId: text("user_id")
             .notNull()
             .references(() => users.id),
-        expiresAt: integer("expires_at").notNull(),
-        createdAt: integer("created_at").notNull(),
+        expiresAt: epochMs("expires_at").notNull(),
+        createdAt: epochMs("created_at").notNull(),
     },
     (t) => [index("sessions_user_idx").on(t.userId)],
 );
@@ -34,7 +38,7 @@ export const sessions = sqliteTable(
 // Bearer access token issued by TRON at OAuth callback. Persisted because the app-initiated charge
 // flow needs the user's bearer to debit them from request paths that don't carry the raw token
 // (the events socket, the poll backstop). One row per user; re-auth overwrites via upsert.
-export const oauthAccessTokens = sqliteTable("oauth_access_tokens", {
+export const oauthAccessTokens = pgTable("oauth_access_tokens", {
     userId: text("user_id")
         .primaryKey()
         .references(() => users.id),
@@ -42,11 +46,11 @@ export const oauthAccessTokens = sqliteTable("oauth_access_tokens", {
     refreshToken: text("refresh_token"),
     scope: text("scope").notNull(),
     tokenType: text("token_type").notNull(),
-    expiresAt: integer("expires_at"),
-    issuedAt: integer("issued_at").notNull(),
+    expiresAt: epochMs("expires_at"),
+    issuedAt: epochMs("issued_at").notNull(),
 });
 
-export const rooms = sqliteTable(
+export const rooms = pgTable(
     "rooms",
     {
         id: text("id").primaryKey(),
@@ -64,11 +68,11 @@ export const rooms = sqliteTable(
         // stake into it; the winner (or both, on a draw) are paid via TRON's signed distributePot.
         potId: text("pot_id"),
         // The GameModule's persisted state blob. Generic on purpose.
-        state: text("state", { mode: "json" }).$type<unknown>().notNull(),
+        state: jsonb("state").$type<unknown>().notNull(),
         // Which seat (if any) acted last -- lets the engine apply optimistic-concurrency checks.
         lastMoveSeat: text("last_move_seat").$type<Seat>(),
-        createdAt: integer("created_at").notNull(),
-        updatedAt: integer("updated_at").notNull(),
+        createdAt: epochMs("created_at").notNull(),
+        updatedAt: epochMs("updated_at").notNull(),
     },
     (t) => [
         index("rooms_status_idx").on(t.status),
@@ -84,7 +88,7 @@ export const rooms = sqliteTable(
 // recovery. Two shapes share this table, told apart by `kind`:
 //   - "stake"    -> a pot stake; `roomId` is set; completion advances the room.
 //   - "purchase" -> a one-way store buy; `roomId` is null; completion credits `creditPoints`.
-export const oauthPaymentIntents = sqliteTable(
+export const oauthPaymentIntents = pgTable(
     "oauth_payment_intents",
     {
         id: text("id").primaryKey(),
@@ -106,10 +110,10 @@ export const oauthPaymentIntents = sqliteTable(
         // applied exactly once no matter which path (charge response, events socket, poll, sync)
         // observes the completion first.
         creditPoints: integer("credit_points"),
-        pointsCredited: integer("points_credited", { mode: "boolean" }).notNull().default(false),
-        createdAt: integer("created_at").notNull(),
-        resolvedAt: integer("resolved_at"),
-        expiresAt: integer("expires_at").notNull(),
+        pointsCredited: boolean("points_credited").notNull().default(false),
+        createdAt: epochMs("created_at").notNull(),
+        resolvedAt: epochMs("resolved_at"),
+        expiresAt: epochMs("expires_at").notNull(),
     },
     (t) => [
         index("opi_room_idx").on(t.roomId),
