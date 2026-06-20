@@ -1,0 +1,33 @@
+{
+    "_comment": "game-kit Railway multi-service template DESCRIPTOR. This is the source-of-truth topology + env wiring the Metatron MCP `provision_stack` tool (metatron#349) reads to instantiate the stack into the CREATOR'S OWN Railway workspace via Railway's API. The creator owns and pays for the project; Metatron never hosts or pays. Railway terminates TLS, so there is no Caddy (Caddy is only for the BYOC docker-compose path). Single-origin: `web` is the only PUBLIC service and proxies /api + /ws to the PRIVATE `api` service over Railway private networking (apps/web/nginx.conf.template).",
+    "name": "game-kit",
+    "description": "Full-stack web3 game (web + api + Postgres + Redis) on the Metatron rails.",
+    "services": [
+        {
+            "name": "web",
+            "public": true,
+            "source": { "repo": "game-kit", "rootDirectory": ".", "configPath": "deploy/railway/web.json" },
+            "variables": {
+                "API_UPSTREAM": "${{api.RAILWAY_PRIVATE_DOMAIN}}:8787",
+                "METATRON_REGISTRY": "https://registry.npmjs.org"
+            }
+        },
+        {
+            "name": "api",
+            "public": false,
+            "source": { "repo": "game-kit", "rootDirectory": ".", "configPath": "deploy/railway/api.json" },
+            "variables": {
+                "DATABASE_URL": "${{Postgres.DATABASE_URL}}",
+                "REDIS_URL": "${{Redis.REDIS_URL}}",
+                "API_PORT": "8787",
+                "WEB_ORIGIN": "https://${{web.RAILWAY_PUBLIC_DOMAIN}}",
+                "OAUTH_REDIRECT_URI": "https://${{web.RAILWAY_PUBLIC_DOMAIN}}/api/auth/callback",
+                "SESSION_SECRET": "${{secret(32)}}",
+                "METATRON_REGISTRY": "https://registry.npmjs.org",
+                "_fromMetatronDevApp": "OAUTH_CLIENT_ID, OAUTH_CLIENT_SECRET, OAUTH_AUTHORIZE_URL, OAUTH_TOKEN_URL, OAUTH_USERINFO_URL, OAUTH_SCOPES, TRON_API_ORIGIN, PAYMENT_CHAIN, PAYMENT_TOKEN are injected by the MCP from the creator's Metatron developer app (metatron#349 env auto-wiring), not hard-coded here."
+            }
+        }
+    ],
+    "plugins": ["postgresql", "redis"],
+    "_playUrl": "The storefront Play target is the web service's public domain (https://${{web.RAILWAY_PUBLIC_DOMAIN}}). The MCP registers it against the developer app (metatron#349/#350); the creator can later repoint a custom domain."
+}

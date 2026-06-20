@@ -1,4 +1,4 @@
-import { TronNodeClient } from "@metatron/sdk/node";
+import { TronNodeClient } from "@metatrongg/sdk/node";
 
 import { env } from "../env.js";
 

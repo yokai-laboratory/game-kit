@@ -16,7 +16,7 @@ import { stdin, stdout } from "node:process";
 //     client_secret from the TRON developer dashboard.
 //
 // Every prompt can be pre-answered with an env var so an agent can run it non-interactively, e.g.:
-//   TRON_API_ORIGIN=https://api.tron.example DOMAIN=play.mygame.com \
+//   TRON_API_ORIGIN=https://api.metatron.gg DOMAIN=play.mygame.com \
 //   OAUTH_CLIENT_ID=... OAUTH_CLIENT_SECRET=... pnpm setup
 // ─────────────────────────────────────────────────────────────────────────────
 

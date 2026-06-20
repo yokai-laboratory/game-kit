@@ -1,4 +1,4 @@
-import { TronError as SdkTronError } from "@metatron/sdk/node";
+import { TronError as SdkTronError } from "@metatrongg/sdk/node";
 
 import { tronClient } from "./tron-client.js";
 

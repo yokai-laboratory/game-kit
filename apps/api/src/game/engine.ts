@@ -1,5 +1,5 @@
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
-import { alias } from "drizzle-orm/sqlite-core";
+import { alias } from "drizzle-orm/pg-core";
 import { nanoid } from "nanoid";
 import { randomBytes } from "node:crypto";
 import type {
@@ -213,12 +213,15 @@ export async function onIntentResolved(intent: IntentRow): Promise<void> {
 // GameError on any rejection (the WS handler relays the code to the submitting socket). On success
 // it broadcasts the new state + any events over the Redis hub, and fires settlement on completion.
 export async function applyMove(input: { roomId: string; userId: string; moveInput: unknown }): Promise<void> {
-    // better-sqlite3 transactions are synchronous: the callback runs to completion inside one
-    // BEGIN/COMMIT and the tx query builders return their results directly (no await). On a single
-    // SQLite handle this serializes writers, which gives us the same room-row serialization the
-    // Postgres `SELECT ... FOR UPDATE` provided.
-    const tx = db.transaction((txn) => {
-        const rows = txn.select().from(schema.rooms).where(eq(schema.rooms.id, input.roomId)).limit(1).all();
+    // Row-locked transaction: `SELECT ... FOR UPDATE` pins the room row for the BEGIN/COMMIT so
+    // concurrent moves -- possibly arriving at different API replicas -- serialize on it.
+    const tx = await db.transaction(async (txn) => {
+        const rows = await txn
+            .select()
+            .from(schema.rooms)
+            .where(eq(schema.rooms.id, input.roomId))
+            .limit(1)
+            .for("update");
         const room = rows[0];
         if (!room) throw new GameError("room_not_found");
         if (room.status !== "in_progress") throw new GameError("room_not_in_progress");
@@ -242,7 +245,7 @@ export async function applyMove(input: { roomId: string; userId: string; moveInp
         const winnerUserId =
             outcome.kind === "win" ? (outcome.winner === "host" ? room.hostUserId : room.guestUserId) : null;
 
-        txn
+        await txn
             .update(schema.rooms)
             .set({
                 state: nextState,
@@ -250,8 +253,7 @@ export async function applyMove(input: { roomId: string; userId: string; moveInp
                 updatedAt: Date.now(),
                 ...(complete ? { status: "completed", resultKind: outcome.kind, winnerUserId } : {}),
             })
-            .where(eq(schema.rooms.id, room.id))
-            .run();
+            .where(eq(schema.rooms.id, room.id));
 
         return { room, module, nextState, complete, outcome, winnerUserId, events: applied.events ?? [] };
     });
@@ -300,8 +302,13 @@ async function fanOutTransition(roomId: string, tx: AppliedTransition): Promise<
 // broadcasts (the tick is the fan-out cadence) and completion is only ever decided by a tick.
 // Mirrors the TRON hosted-game semantics so a game graduates between the two without redesign.
 export async function applyInput(input: { roomId: string; userId: string; inputPayload: unknown }): Promise<void> {
-    db.transaction((txn) => {
-        const rows = txn.select().from(schema.rooms).where(eq(schema.rooms.id, input.roomId)).limit(1).all();
+    await db.transaction(async (txn) => {
+        const rows = await txn
+            .select()
+            .from(schema.rooms)
+            .where(eq(schema.rooms.id, input.roomId))
+            .limit(1)
+            .for("update");
         const room = rows[0];
         if (!room) throw new GameError("room_not_found");
         if (room.status !== "in_progress") throw new GameError("room_not_in_progress");
@@ -327,19 +334,23 @@ export async function applyInput(input: { roomId: string; userId: string; inputP
             throw new GameError("input_rejected");
         }
 
-        txn
+        await txn
             .update(schema.rooms)
             .set({ state: nextState, lastMoveSeat: seat, updatedAt: Date.now() })
-            .where(eq(schema.rooms.id, room.id))
-            .run();
+            .where(eq(schema.rooms.id, room.id));
     });
 }
 
 // Advance a realtime room by one server tick. Returns "ticked" while the game continues; anything
 // else tells the ticker to stop its loop ("stopped" = room gone / not in progress / not realtime).
 export async function tickRoom(roomId: string, dtMs: number): Promise<"ticked" | "completed" | "stopped"> {
-    const tx = db.transaction((txn): AppliedTransition | null => {
-        const rows = txn.select().from(schema.rooms).where(eq(schema.rooms.id, roomId)).limit(1).all();
+    const tx = await db.transaction(async (txn): Promise<AppliedTransition | null> => {
+        const rows = await txn
+            .select()
+            .from(schema.rooms)
+            .where(eq(schema.rooms.id, roomId))
+            .limit(1)
+            .for("update");
         const room = rows[0];
         if (!room || room.status !== "in_progress") return null;
 
@@ -354,15 +365,14 @@ export async function tickRoom(roomId: string, dtMs: number): Promise<"ticked" |
         const winnerUserId =
             outcome.kind === "win" ? (outcome.winner === "host" ? room.hostUserId : room.guestUserId) : null;
 
-        txn
+        await txn
             .update(schema.rooms)
             .set({
                 state: nextState,
                 updatedAt: Date.now(),
                 ...(complete ? { status: "completed", resultKind: outcome.kind, winnerUserId } : {}),
             })
-            .where(eq(schema.rooms.id, room.id))
-            .run();
+            .where(eq(schema.rooms.id, room.id));
 
         return { room, module, nextState, complete, outcome, winnerUserId, events: applied.events ?? [] };
     });

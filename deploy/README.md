@@ -67,10 +67,8 @@ removes the external dependencies.
 
 ## The SDK at build time
 
-Image builds need `@metatron/sdk` from the registry in `.npmrc`. The api/web builds use
-`network: host`, so a Verdaccio on the VPS at `localhost:4873` is reachable; or publish the SDK to a
-private registry and repoint the scope (and `NPM_CONFIG_REGISTRY` if your default registry changes
-too). See the root README's "SDK prerequisite".
+`@metatrongg/sdk` is on the public npm registry, so image builds resolve it with a plain
+`pnpm install` — nothing to configure.
 
 ## Notes
 

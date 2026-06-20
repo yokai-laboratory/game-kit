@@ -1,4 +1,4 @@
-import { mountPresenceWidget } from "@metatron/sdk/browser";
+import { mountPresenceWidget } from "@metatrongg/sdk/browser";
 import { useEffect, useRef } from "react";
 import { getPresenceConfig } from "./api";
 

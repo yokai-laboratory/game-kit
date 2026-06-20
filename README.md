@@ -53,7 +53,7 @@ generic engine drives any module through the lifecycle — **create → stake �
 ## Quickstart (local)
 
 Prereqs: Node 24, pnpm 11. No Docker needed locally — state is a single SQLite file and the
-realtime hub fans out in-process (see [Scaling](#scaling)). **And** the `@metatron/sdk`
+realtime hub fans out in-process (see [Scaling](#scaling)). **And** the `@metatrongg/sdk`
 registry — see [SDK prerequisite](#sdk-prerequisite).
 
 ```bash
@@ -125,28 +125,18 @@ The web app also ships a **store** (`apps/web/src/routes/Store.tsx`) demonstrati
 buy point packs with a TRON charge; balance shows in the top bar. Keep it as a reference for selling
 in-game inventory, or delete it alongside coinflip if your game doesn't need a store.
 
-## SDK prerequisite
+## SDK
 
-`@metatron/sdk` is **not on public npm**. `.npmrc` points the `@metatron` scope at a
-local Verdaccio (`http://localhost:4873`) that the metatron repo runs:
+`@metatrongg/sdk` is published to the **public npm registry**, so a plain `pnpm install` resolves it —
+no Verdaccio, no scope pin, and Docker builds need no host networking for it.
 
-```bash
-# in the metatron repo:
-docker compose up -d verdaccio
-pnpm build --filter @metatron/sdk
-cd packages/sdk && pnpm publish --registry http://localhost:4873 --no-git-checks
-```
-
-Hosting the SDK elsewhere? Repoint the scope in `.npmrc`. Docker builds reach the registry via host
-networking; keep it up during `docker compose build`.
-
-> **Keep the SDK current with tron.** The pinned `@metatron/sdk` version drifts behind whenever
-> metatron rebuilds + republishes the SDK to Verdaccio — so **whenever the tron SDK is updated,
-> bump it here too**. Update the `@metatron/sdk` specifier in `apps/api/package.json` +
-> `apps/web/package.json` to the new version, re-run `pnpm install`, and commit the lockfile. A stale
-> pin surfaces at runtime, most painfully on a breaking rename (e.g. tron's `tusd`→`tron` turned
-> `payments.tusdCharge` into `payments.tronCharge` → `TypeError: ... is not a function`). The sibling
-> games (high-low, coin-factory) follow the same rule.
+> **Keep the SDK current with tron.** The pinned `@metatrongg/sdk` version drifts behind whenever
+> metatron publishes a new SDK release — so **whenever the tron SDK is updated, bump it here too**.
+> Update the `@metatrongg/sdk` specifier in `apps/api/package.json` + `apps/web/package.json` to the
+> new version, re-run `pnpm install`, and commit the lockfile. A stale pin surfaces at runtime, most
+> painfully on a breaking rename (e.g. tron's `tusd`→`tron` turned `payments.tusdCharge` into
+> `payments.tronCharge` → `TypeError: ... is not a function`). The sibling games (high-low,
+> coin-factory) follow the same rule.
 
 ## How payments work (at a glance)
 

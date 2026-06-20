@@ -10,6 +10,10 @@ RUN pnpm install
 RUN pnpm --filter @game-kit/web build
 
 FROM nginx:1.27-alpine
-COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
+# Single-origin routing config as an envsubst template: ${API_UPSTREAM} is filled at container start
+# (api:8787 under compose, api.railway.internal:8787 on Railway). nginx's entrypoint renders
+# /etc/nginx/templates/*.template into /etc/nginx/conf.d/ before boot.
+ENV API_UPSTREAM=api:8787
+COPY apps/web/nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /app/apps/web/dist /usr/share/nginx/html
 EXPOSE 80
