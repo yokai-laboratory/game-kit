@@ -1,7 +1,7 @@
 {
     "name": "game-kit",
     "private": true,
-    "packageManager": "pnpm@11.1.2",
+    "packageManager": "pnpm@11.8.0",
     "description": "Full-stack web3 game template built on the Metatron (TRON) payment + identity rails. Ships a coin-flip duel example you swap out for your own game.",
     "engines": {
         "node": ">=24"
