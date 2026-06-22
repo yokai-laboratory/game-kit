@@ -21,14 +21,14 @@
         "hono": "4.12.26",
         "ioredis": "5.11.1",
         "nanoid": "5.1.15",
-        "pg": "8.13.1",
+        "pg": "8.22.0",
         "pino": "9.6.0",
         "ws": "8.21.0",
         "zod": "4.4.3"
     },
     "devDependencies": {
         "@types/node": "26.0.0",
-        "@types/pg": "8.11.10",
+        "@types/pg": "8.20.0",
         "@types/ws": "8.18.1",
         "tsx": "4.22.4",
         "typescript": "6.0.3"
