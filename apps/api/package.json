@@ -27,7 +27,7 @@
         "zod": "4.4.3"
     },
     "devDependencies": {
-        "@types/node": "25.9.1",
+        "@types/node": "26.0.0",
         "@types/pg": "8.11.10",
         "@types/ws": "8.18.1",
         "tsx": "4.22.4",
