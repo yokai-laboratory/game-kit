@@ -16,7 +16,7 @@
         "@metatrongg/sdk": "0.7.3",
         "react": "19.2.7",
         "react-dom": "19.2.7",
-        "react-router-dom": "7.16.0"
+        "react-router-dom": "7.18.0"
     },
     "devDependencies": {
         "@types/react": "19.2.17",
