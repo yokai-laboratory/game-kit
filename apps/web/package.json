@@ -13,7 +13,7 @@
         "@game-kit/game-coinflip": "workspace:*",
         "@game-kit/game-core": "workspace:*",
         "@game-kit/game-hosted-b658f0aa": "workspace:*",
-        "@metatrongg/sdk": "0.7.3",
+        "@metatrongg/sdk": "dev",
         "react": "19.2.7",
         "react-dom": "19.2.7",
         "react-router-dom": "7.18.0"
