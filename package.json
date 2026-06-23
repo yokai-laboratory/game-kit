@@ -1,7 +1,7 @@
 {
     "name": "game-kit",
     "private": true,
-    "packageManager": "pnpm@11.1.2",
+    "packageManager": "pnpm@11.8.0",
     "description": "Full-stack web3 game template built on the Metatron (TRON) payment + identity rails. Ships a coin-flip duel example you swap out for your own game.",
     "engines": {
         "node": ">=24"
@@ -14,9 +14,9 @@
         "setup": "tsx scripts/setup.ts"
     },
     "devDependencies": {
-        "@types/node": "25.9.1",
+        "@types/node": "26.0.0",
         "tsx": "4.22.4",
-        "turbo": "2.9.16",
+        "turbo": "2.9.18",
         "typescript": "6.0.3"
     }
 }

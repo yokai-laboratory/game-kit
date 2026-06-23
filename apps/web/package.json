@@ -13,13 +13,13 @@
         "@game-kit/game-coinflip": "workspace:*",
         "@game-kit/game-core": "workspace:*",
         "@game-kit/game-hosted-b658f0aa": "workspace:*",
-        "@metatrongg/sdk": "0.7.3",
+        "@metatrongg/sdk": "dev",
         "react": "19.2.7",
         "react-dom": "19.2.7",
-        "react-router-dom": "7.16.0"
+        "react-router-dom": "7.18.0"
     },
     "devDependencies": {
-        "@types/react": "19.2.16",
+        "@types/react": "19.2.17",
         "@types/react-dom": "19.2.3",
         "@vitejs/plugin-react": "6.0.2",
         "typescript": "6.0.3",

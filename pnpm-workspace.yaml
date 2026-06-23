@@ -9,3 +9,10 @@ packages:
 allowBuilds:
   better-sqlite3: true
   esbuild: true
+
+# pnpm 11.8 enforces a default release-age floor (supply-chain guard). Adopt metatron's 1-day floor,
+# but exclude our own @metatrongg/sdk: its dev (canary) tag is republished on every metatron develop
+# push, so it is always within the cutoff by design -- and we trust our own builds.
+minimumReleaseAge: 1440
+minimumReleaseAgeExclude:
+  - "@metatrongg/sdk"
