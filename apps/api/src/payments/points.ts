@@ -46,8 +46,6 @@ export async function getUserPoints(userId: string): Promise<number> {
 // backstop, or the return-page sync -- credits exactly once; the rest no-op. Returns the buyer's new
 // balance when it credited, or null when there was nothing to do.
 export async function creditPurchaseIfCompleted(intentId: string): Promise<number | null> {
-    // The guarded UPDATE claims-or-noops atomically inside one BEGIN/COMMIT, so the once-only credit
-    // semantics hold no matter which completion path observes the intent first.
     return db.transaction(async (txn) => {
         const claimed = await txn
             .update(schema.oauthPaymentIntents)
