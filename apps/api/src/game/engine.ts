@@ -213,8 +213,6 @@ export async function onIntentResolved(intent: IntentRow): Promise<void> {
 // GameError on any rejection (the WS handler relays the code to the submitting socket). On success
 // it broadcasts the new state + any events over the Redis hub, and fires settlement on completion.
 export async function applyMove(input: { roomId: string; userId: string; moveInput: unknown }): Promise<void> {
-    // Row-locked transaction: `SELECT ... FOR UPDATE` pins the room row for the BEGIN/COMMIT so
-    // concurrent moves -- possibly arriving at different API replicas -- serialize on it.
     const tx = await db.transaction(async (txn) => {
         const rows = await txn
             .select()

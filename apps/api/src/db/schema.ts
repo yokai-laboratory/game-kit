@@ -69,7 +69,6 @@ export const rooms = pgTable(
         potId: text("pot_id"),
         // The GameModule's persisted state blob. Generic on purpose.
         state: jsonb("state").$type<unknown>().notNull(),
-        // Which seat (if any) acted last -- lets the engine apply optimistic-concurrency checks.
         lastMoveSeat: text("last_move_seat").$type<Seat>(),
         createdAt: epochMs("created_at").notNull(),
         updatedAt: epochMs("updated_at").notNull(),
