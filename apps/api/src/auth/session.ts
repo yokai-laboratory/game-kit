@@ -1,11 +1,8 @@
 import { nanoid } from "nanoid";
 import { eq } from "drizzle-orm";
 import type { Context, MiddlewareHandler } from "hono";
-import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { db, schema } from "../db/client.js";
-import { env } from "../env.js";
 
-const COOKIE = "gk_session";
 const TTL_MS = 1000 * 60 * 60 * 24 * 7;
 
 export interface SessionUser {
@@ -15,11 +12,25 @@ export interface SessionUser {
     points: number;
 }
 
-// In production the app is served same-origin behind the reverse proxy (web + /api under one
-// domain), so a Lax, Secure, HttpOnly cookie is correct. Locally it's HTTP on localhost, so Secure
-// is dropped (browsers reject Secure cookies over http).
-function cookieSecure(): boolean {
-    return env.NODE_ENV === "production";
+// Bearer-token session model. The browser session is NOT a cookie. The platform hands each game a
+// frontend subdomain that points at wherever the dev hosts the api, so the web and the api commonly
+// live on different registrable domains -- and browsers block third-party cookies regardless of
+// SameSite, so a session cookie set on the api domain is never sent on a cross-site fetch/WS from the
+// web. Instead the OAuth callback hands the opaque session id back in a URL fragment; the web stores
+// it and presents it as `Authorization: Bearer <id>` on REST calls and `?token=<id>` on the WS
+// upgrade (browsers can't set headers on a WebSocket). Origin-agnostic: works unchanged whether the
+// web is same-origin behind a reverse proxy or on a separate domain -- no per-deploy config. The
+// token IS the session row id (opaque, no JWT). The OAuth PKCE state/verifier stay cookies: they're
+// first-party to the api domain (set on /auth/login, read on /auth/callback, both on the api) and
+// Lax cookies ride the top-level redirect back through TRON.
+function sessionTokenFrom(c: Context): string | null {
+    const header = c.req.header("authorization");
+    if (header) {
+        const [scheme, value] = header.split(/\s+/u);
+        if (scheme?.toLowerCase() === "bearer" && value) return value;
+    }
+    // WebSocket upgrade can't carry an Authorization header, so the web passes ?token= instead.
+    return c.req.query("token") ?? null;
 }
 
 export async function createSession(userId: string): Promise<string> {
@@ -34,22 +45,8 @@ export async function createSession(userId: string): Promise<string> {
     return id;
 }
 
-export function attachSessionCookie(c: Context, sessionId: string): void {
-    setCookie(c, COOKIE, sessionId, {
-        httpOnly: true,
-        sameSite: "Lax",
-        secure: cookieSecure(),
-        path: "/",
-        maxAge: Math.floor(TTL_MS / 1000),
-    });
-}
-
-export function clearSessionCookie(c: Context): void {
-    deleteCookie(c, COOKIE, { path: "/" });
-}
-
 export async function loadSessionUser(c: Context): Promise<SessionUser | null> {
-    const id = getCookie(c, COOKIE);
+    const id = sessionTokenFrom(c);
     if (!id) return null;
     const row = await db
         .select({
@@ -73,9 +70,8 @@ export async function loadSessionUser(c: Context): Promise<SessionUser | null> {
 }
 
 export async function destroySession(c: Context): Promise<void> {
-    const id = getCookie(c, COOKIE);
+    const id = sessionTokenFrom(c);
     if (id) await db.delete(schema.sessions).where(eq(schema.sessions.id, id));
-    clearSessionCookie(c);
 }
 
 export const requireUser: MiddlewareHandler<{ Variables: { user: SessionUser } }> = async (c, next) => {

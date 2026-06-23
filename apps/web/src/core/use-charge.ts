@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { apiFetch } from "./api";
 
 // Drives the TRON /oauth/payments/charge flow from the web side. The API proxies the call
 // server-to-server with the user's stored bearer; the response tells us whether the charge
@@ -35,9 +36,8 @@ export function useCharge(): { status: ChargeStatus; charge: (roomId: string) =>
     const charge = useCallback(async (roomId: string) => {
         setStatus({ kind: "requesting" });
         try {
-            const res = await fetch("/api/payments/charge", {
+            const res = await apiFetch("/payments/charge", {
                 method: "POST",
-                credentials: "include",
                 headers: { "content-type": "application/json" },
                 body: JSON.stringify({ roomId }),
             });
@@ -92,9 +92,8 @@ export function usePurchase(): { status: ChargeStatus; purchase: (packId: string
     const purchase = useCallback(async (packId: string) => {
         setStatus({ kind: "requesting" });
         try {
-            const res = await fetch("/api/payments/purchase", {
+            const res = await apiFetch("/payments/purchase", {
                 method: "POST",
-                credentials: "include",
                 headers: { "content-type": "application/json" },
                 body: JSON.stringify({ packId }),
             });
@@ -144,10 +143,7 @@ export async function syncIntent(intentId: string): Promise<{
     intent: { id: string; roomId: string; status: "pending" | "completed" | "denied" | "expired" };
     changed: boolean;
 }> {
-    const res = await fetch(`/api/payments/intent/${encodeURIComponent(intentId)}/sync`, {
-        method: "POST",
-        credentials: "include",
-    });
+    const res = await apiFetch(`/payments/intent/${encodeURIComponent(intentId)}/sync`, { method: "POST" });
     if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(body.error ?? `sync_failed_${res.status}`);
