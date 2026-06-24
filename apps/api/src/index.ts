@@ -22,6 +22,10 @@ app.use(
     "*",
     cors({
         origin: env.WEB_ORIGIN,
+        // The web authenticates with a bearer token (see auth/session.ts), so cross-origin requests
+        // must be allowed to send the Authorization header. credentials stays on for the rare
+        // same-origin cookie (none today) and is harmless with an explicit (non-`*`) origin.
+        allowHeaders: ["Content-Type", "Authorization"],
         credentials: true,
     }),
 );

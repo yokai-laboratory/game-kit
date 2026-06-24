@@ -61,6 +61,12 @@ export const rooms = pgTable(
             .references(() => users.id),
         guestUserId: text("guest_user_id").references(() => users.id),
         stakeEth: text("stake_eth").notNull(),
+        // Stake denomination. "eth" stakes route on-chain via the CreditVault pot (priced in wei,
+        // settled with distributePot); "tron" stakes settle synchronously against TRON's platform
+        // ledger (priced in cents via tronToCents, settled with tronDistribute). `stakeEth` holds
+        // the amount in the room's own units (decimal ETH, or whole TRON) -- the column name predates
+        // multi-currency.
+        currency: text("currency").$type<"eth" | "tron">().notNull().default("eth"),
         status: text("status").$type<RoomStatus>().notNull(),
         resultKind: text("result_kind").$type<RoomResult["kind"]>().notNull().default("pending"),
         winnerUserId: text("winner_user_id").references(() => users.id),

@@ -19,6 +19,8 @@ import {
 } from "./intents.js";
 import { fetchPaymentLimits, fetchPaymentPrice, getIntentStatus, requestCharge, TronError } from "./oauth-client.js";
 import { getPointPack, getUserPoints, POINT_PACKS } from "./points.js";
+import { tronClient } from "./tron-client.js";
+import { tronToCents } from "./units.js";
 
 export const paymentsRoutes = new Hono<{ Variables: { user: SessionUser } }>();
 
@@ -55,9 +57,96 @@ paymentsRoutes.post("/charge", async (c) => {
         return c.json({ error: "scope_insufficient", required: "payments:charge" }, 403);
     }
 
-    const amountWei = ethToWei(room.stakeEth).toString();
     const returnUri = `${env.WEB_ORIGIN}/payment-return?roomId=${encodeURIComponent(room.id)}`;
     const gameName = getGameModule(room.gameId)?.displayName ?? room.gameId;
+
+    // TRON rail: a stake at or below the user's per-charge auto-approve cap settles silently
+    // (synchronous `completed`); otherwise -- first charge from this app, over the per-charge cap, or
+    // over the monthly auto-budget -- TRON returns `redirect` and the user confirms the authoritative
+    // amount on the hosted /pay-tron screen. The deterministic (room, user) idempotency key makes a
+    // retried request replay TRON's original outcome instead of minting a second intent. This mirrors
+    // the ETH rail below, but priced in ledger cents (tronToCents) and settled on TRON's ledger.
+    if (room.currency === "tron") {
+        if (!room.potId) return c.json({ error: "room_missing_pot" }, 500);
+        const amountCents = tronToCents(room.stakeEth);
+        const tronIdempotencyKey = `tron-${room.id}-${user.id}`;
+        let tronResponse;
+        try {
+            tronResponse = await tronClient.payments.tronCharge({
+                bearer: tokenRow.accessToken,
+                idempotencyKey: tronIdempotencyKey,
+                body: {
+                    potId: room.potId as `0x${string}`,
+                    amountCents,
+                    // Required: any TRON charge can bounce to the hosted /pay-tron confirm screen,
+                    // which returns the user here afterward. Ignored on the silent path.
+                    returnUri,
+                    // `groupId` (room id) bundles the stakes + the winnings/refund distribution as one
+                    // story on the player's TRON activity feed.
+                    metadata: {
+                        groupId: room.id,
+                        sessionId: room.id,
+                        purpose: "entry_fee",
+                        title: `${gameName} stake`,
+                        note: `Stake for ${gameName} room ${room.id}`,
+                    },
+                },
+            });
+        } catch (e) {
+            if (e instanceof TronError) {
+                return c.json({ error: "tron_charge_failed", code: e.code, status: e.status }, 502);
+            }
+            throw e;
+        }
+        if (tronResponse.status === "insufficient_balance") {
+            // 402, structured like the raise-cap path: the web renders a top-up prompt. The user
+            // deposits on TRON (profile -> TRON balance) and retries.
+            return c.json(
+                { status: "insufficient_tron" as const, balanceCents: tronResponse.balanceCents, requiredCents: amountCents },
+                402,
+            );
+        }
+        if (tronResponse.status === "redirect") {
+            // Consent redirect: record a pending intent keyed on TRON's intentId so the events socket
+            // maps the eventual completed/denied transition back to this room, then hand the web the
+            // redirect to navigate to. Mirrors the ETH redirect branch.
+            await recordIntent({
+                intentId: tronResponse.intentId,
+                roomId: room.id,
+                userId: user.id,
+                usdCents: tronResponse.amountCents,
+                chain: "tron",
+                expiresAt: Date.now() + 5 * 60 * 1000,
+                initialStatus: "pending",
+                idempotencyKey: tronIdempotencyKey,
+            });
+            return c.json({
+                status: "redirect",
+                intentId: tronResponse.intentId,
+                redirectUrl: tronResponse.redirectUrl,
+                usdCents: tronResponse.amountCents,
+            });
+        }
+        // Completed (first time or idempotent replay). TRON mints no intent for the silent path, so we
+        // fabricate a deterministic local id purely so getCompletedStakeIntents/advanceRoomAfterStakes
+        // see this stake like any other; recordIntent's onConflictDoNothing makes the replay a no-op.
+        const intentId = `tronintent-${room.id}-${user.id}`;
+        await recordIntent({
+            intentId,
+            roomId: room.id,
+            userId: user.id,
+            usdCents: amountCents,
+            chain: "tron",
+            expiresAt: Date.now() + 5 * 60 * 1000,
+            initialStatus: "completed",
+            idempotencyKey: tronIdempotencyKey,
+        });
+        const advanced = await advanceRoomAfterStakes(room.id);
+        if (advanced) await broadcastState(room.id);
+        return c.json({ status: "completed", intentId });
+    }
+
+    const amountWei = ethToWei(room.stakeEth).toString();
 
     // Idempotency: reuse a still-pending intent's key so a re-click triggers TRON's replay instead of
     // minting a second intent + cap reservation.
@@ -79,6 +168,9 @@ paymentsRoutes.post("/charge", async (c) => {
                     purpose: "entry_fee",
                     title: `${gameName} stake`,
                     note: `Stake for ${gameName} room ${room.id}`,
+                    // `groupId` (room id) bundles the stakes + the winnings/refund distribution as one
+                    // story on the player's TRON activity feed; `sessionId` mirrors it as the round marker.
+                    groupId: room.id,
                     sessionId: room.id,
                     extra: { roomId: room.id, gameId: room.gameId, stakeEth: room.stakeEth, seat: isHost ? "host" : "guest" },
                 },
@@ -265,6 +357,25 @@ paymentsRoutes.post("/purchase", async (c) => {
     });
 });
 
+// GET /payments/tron-balance -- the player's spendable TRON ledger balance, proxied through the
+// SDK read so the web can render it next to TRON stake affordances and explain an insufficient_tron
+// rejection. A null balance means "unavailable" (token missing / scope short / TRON unreachable):
+// the web renders a dash instead of failing the lobby, because the figure is advisory -- the charge
+// path re-checks for real. `rakeBps` is the app-global house cut TRON carves off a pot's winnings.
+paymentsRoutes.get("/tron-balance", async (c) => {
+    const user = c.get("user");
+    const tokenRow = await loadAccessTokenForUser(user.id);
+    if (!tokenRow || !tokenRow.scope.split(/\s+/u).includes("payments:charge")) {
+        return c.json({ balanceCents: null, rakeBps: null });
+    }
+    try {
+        const response = await tronClient.payments.tronBalance({ bearer: tokenRow.accessToken });
+        return c.json({ balanceCents: response.balanceCents, rakeBps: response.rakeBps });
+    } catch {
+        return c.json({ balanceCents: null, rakeBps: null });
+    }
+});
+
 // GET /payments/preflight/:roomId -- bundle limits + a stake price quote so the web can render USD
 // usage and decide whether to surface a "raise cap" CTA before the user clicks pay.
 paymentsRoutes.get("/preflight/:roomId", async (c) => {
@@ -280,6 +391,25 @@ paymentsRoutes.get("/preflight/:roomId", async (c) => {
     if (!tokenRow) return c.json({ error: "missing_access_token" }, 401);
     if (!tokenRow.scope.split(/\s+/u).includes("payments:charge")) {
         return c.json({ error: "scope_insufficient", required: "payments:charge" }, 403);
+    }
+
+    // TRON rooms have no chain pricing and no monthly-cap interaction: the stake IS ledger cents and
+    // the debit is synchronous. Surface the trivial quote in the same shape (usdRate 1:1, no cap
+    // pressure) so the web's preflight consumer stays one code path. The web formats it as TRON
+    // (1 TRON = 1 cent) based on the room's currency.
+    if (room.currency === "tron") {
+        const stakeCents = tronToCents(room.stakeEth);
+        return c.json({
+            stake: { roomId: room.id, stakeEth: room.stakeEth, amountWei: "0", usdCents: stakeCents, usdRate: "1" },
+            limits: {
+                monthlyLimitCents: null,
+                monthSpentCents: 0,
+                periodStart: null,
+                offlineAutoChargeEnabled: false,
+                perTxOfflineCapCents: null,
+            },
+            derived: { remainingCents: null, willExceedCap: false, willChargeInstantly: false },
+        });
     }
 
     const amountWei = ethToWei(room.stakeEth).toString();

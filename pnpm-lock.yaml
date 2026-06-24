@@ -40,7 +40,7 @@ importers:
         version: 1.3.1(@hono/node-server@2.0.5(hono@4.12.26))(hono@4.12.26)
       '@metatrongg/sdk':
         specifier: dev
-        version: 0.8.0-dev.1703dbe(hono@4.12.26)(react@19.2.7)
+        version: 0.8.0-dev.4ba5890(hono@4.12.26)(react@19.2.7)
       dotenv:
         specifier: 17.4.2
         version: 17.4.2
@@ -98,7 +98,7 @@ importers:
         version: link:../../games/hosted-b658f0aa
       '@metatrongg/sdk':
         specifier: dev
-        version: 0.8.0-dev.1703dbe(hono@4.12.26)(react@19.2.7)
+        version: 0.8.0-dev.4ba5890(hono@4.12.26)(react@19.2.7)
       react:
         specifier: 19.2.7
         version: 19.2.7
@@ -356,10 +356,10 @@ packages:
   '@ioredis/commands@1.10.0':
     resolution: {integrity: sha512-UmeW7z4LfctwoQ5wkhVzgq8tXkreED2xZGpX+Bg+zA+WJFZCT6c062AfCK/Dfk81xZnnwdhJCUMkitihRaoC2Q==}
 
-  '@metatrongg/sdk@0.8.0-dev.1703dbe':
-    resolution: {integrity: sha512-Uvdc3F0zd5qufIjf2gTcxBgtsNVyy25zkiGFggjyqr3kzwEFCoHQgRgB7YxDNN9c+klWieYdJPS7YrJ6QJI06A==}
+  '@metatrongg/sdk@0.8.0-dev.4ba5890':
+    resolution: {integrity: sha512-Dg5r6pcyjq5T9aOKVjXPmTygP36JSg+4TVwDAfp0QTgYi/etzE8gl7x+usW7pzmFjOC6hFja2IBlVUVqyrV4Aw==}
     peerDependencies:
-      hono: 4.12.23
+      hono: 4.12.26
       react: 19.2.7
     peerDependenciesMeta:
       hono:
@@ -1134,7 +1134,7 @@ snapshots:
 
   '@ioredis/commands@1.10.0': {}
 
-  '@metatrongg/sdk@0.8.0-dev.1703dbe(hono@4.12.26)(react@19.2.7)':
+  '@metatrongg/sdk@0.8.0-dev.4ba5890(hono@4.12.26)(react@19.2.7)':
     dependencies:
       zod: 4.4.3
     optionalDependencies:

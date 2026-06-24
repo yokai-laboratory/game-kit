@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { apiFetch } from "./api";
 
 // Drives the TRON /oauth/payments/charge flow from the web side. The API proxies the call
 // server-to-server with the user's stored bearer; the response tells us whether the charge
@@ -16,6 +17,9 @@ export type ChargeStatus =
           attemptedUsdCents: number;
           redirectUrl: string;
       }
+    // TRON rail: the ledger balance can't cover the stake. The user tops up on TRON (profile -> TRON
+    // balance) and retries; there is no redirect flow to follow.
+    | { kind: "insufficient_tron"; balanceCents: number; requiredCents: number }
     | { kind: "error"; message: string };
 
 type ChargeResponse =
@@ -27,7 +31,8 @@ type ChargeResponse =
           monthSpentCents: number;
           attemptedUsdCents: number;
           redirectUrl: string;
-      };
+      }
+    | { status: "insufficient_tron"; balanceCents: number; requiredCents: number };
 
 export function useCharge(): { status: ChargeStatus; charge: (roomId: string) => Promise<void>; reset: () => void } {
     const [status, setStatus] = useState<ChargeStatus>({ kind: "idle" });
@@ -35,14 +40,22 @@ export function useCharge(): { status: ChargeStatus; charge: (roomId: string) =>
     const charge = useCallback(async (roomId: string) => {
         setStatus({ kind: "requesting" });
         try {
-            const res = await fetch("/api/payments/charge", {
+            const res = await apiFetch("/payments/charge", {
                 method: "POST",
-                credentials: "include",
                 headers: { "content-type": "application/json" },
                 body: JSON.stringify({ roomId }),
             });
             if (res.status === 402) {
-                const data = (await res.json()) as Extract<ChargeResponse, { status: "monthly_limit_exceeded" }>;
+                // Two structured 402s share this branch: monthly cap reached (ETH rail, has a
+                // raise-cap redirect) or TRON ledger balance too low (top up + retry).
+                const data = (await res.json()) as Extract<
+                    ChargeResponse,
+                    { status: "monthly_limit_exceeded" } | { status: "insufficient_tron" }
+                >;
+                if (data.status === "insufficient_tron") {
+                    setStatus({ kind: "insufficient_tron", balanceCents: data.balanceCents, requiredCents: data.requiredCents });
+                    return;
+                }
                 setStatus({
                     kind: "limit_exceeded",
                     currentLimitCents: data.currentLimitCents,
@@ -64,6 +77,12 @@ export function useCharge(): { status: ChargeStatus; charge: (roomId: string) =>
             if (data.status === "redirect") {
                 setStatus({ kind: "redirecting", intentId: data.intentId, redirectUrl: data.redirectUrl });
                 window.location.href = data.redirectUrl;
+                return;
+            }
+            // The 402-shaped variants only land here if the api ever returned them with a 2xx (it
+            // doesn't today). The exhaustive narrow keeps the type checker honest if that changes.
+            if (data.status === "insufficient_tron") {
+                setStatus({ kind: "insufficient_tron", balanceCents: data.balanceCents, requiredCents: data.requiredCents });
                 return;
             }
             setStatus({
@@ -92,9 +111,8 @@ export function usePurchase(): { status: ChargeStatus; purchase: (packId: string
     const purchase = useCallback(async (packId: string) => {
         setStatus({ kind: "requesting" });
         try {
-            const res = await fetch("/api/payments/purchase", {
+            const res = await apiFetch("/payments/purchase", {
                 method: "POST",
-                credentials: "include",
                 headers: { "content-type": "application/json" },
                 body: JSON.stringify({ packId }),
             });
@@ -123,6 +141,9 @@ export function usePurchase(): { status: ChargeStatus; purchase: (packId: string
                 window.location.href = data.redirectUrl;
                 return;
             }
+            // Store purchases are ETH-only, so insufficient_tron never lands here; narrow it out to
+            // keep the exhaustive check honest.
+            if (data.status === "insufficient_tron") return;
             setStatus({
                 kind: "limit_exceeded",
                 currentLimitCents: data.currentLimitCents,
@@ -144,10 +165,7 @@ export async function syncIntent(intentId: string): Promise<{
     intent: { id: string; roomId: string; status: "pending" | "completed" | "denied" | "expired" };
     changed: boolean;
 }> {
-    const res = await fetch(`/api/payments/intent/${encodeURIComponent(intentId)}/sync`, {
-        method: "POST",
-        credentials: "include",
-    });
+    const res = await apiFetch(`/payments/intent/${encodeURIComponent(intentId)}/sync`, { method: "POST" });
     if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(body.error ?? `sync_failed_${res.status}`);

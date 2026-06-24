@@ -35,6 +35,9 @@ export interface RoomMeta {
     guestUserId: string | null;
     guestDisplayName: string | null;
     stakeEth: string;
+    // Stake denomination: "eth" (decimal ETH) or "tron" (whole TRON ledger credits). The screen
+    // formats `stakeEth` accordingly. Defaults to "eth" for rooms created before multi-currency.
+    currency: "eth" | "tron";
     status: RoomStatus;
     result: RoomResult;
     createdAt: number;
@@ -81,6 +84,8 @@ export interface GameHistoryItem {
     id: string;
     gameId: string;
     stakeEth: string;
+    // Stake denomination ("eth" | "tron") so history rows render the right unit.
+    currency: "eth" | "tron";
     role: Seat;
     opponent: PublicUser | null;
     outcome: "win" | "loss" | "draw";

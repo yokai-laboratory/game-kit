@@ -7,7 +7,7 @@ import { env } from "../env.js";
 import { db, schema } from "../db/client.js";
 import { logger } from "../logger.js";
 import { tronClient } from "../payments/tron-client.js";
-import { attachSessionCookie, createSession, destroySession, loadSessionUser } from "./session.js";
+import { createSession, destroySession, loadSessionUser } from "./session.js";
 
 const STATE_COOKIE = "gk_oauth_state";
 const VERIFIER_COOKIE = "gk_oauth_verifier";
@@ -130,9 +130,14 @@ authRoutes.get("/callback", async (c) => {
             },
         });
 
+    // Hand the session back to the web in the URL fragment (`#session=`), not a cookie: the web and
+    // api are often different sites (the platform gives each game a frontend subdomain pointing at the
+    // dev's own api), and browsers block third-party cookies, so a cookie set here is never sent back
+    // on the web's cross-site fetch/WS. The fragment never leaves the browser (not sent to servers,
+    // not in Referer, absent from access logs); the web reads it on landing, stows it, and strips it
+    // from the URL. See auth/session.ts for the bearer-token model.
     const sessionId = await createSession(userId);
-    attachSessionCookie(c, sessionId);
-    return c.redirect(`${env.WEB_ORIGIN}/lobby`);
+    return c.redirect(`${env.WEB_ORIGIN}/lobby#session=${encodeURIComponent(sessionId)}`);
 });
 
 authRoutes.post("/logout", async (c) => {

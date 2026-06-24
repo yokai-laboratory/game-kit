@@ -72,6 +72,9 @@ export async function createRoom(input: {
     hostUserId: string;
     hostDisplayName: string;
     stakeEth: string;
+    // Stake denomination: "eth" (on-chain CreditVault pot, priced in wei) or "tron" (TRON ledger,
+    // priced in cents). Defaults to "eth". `stakeEth` holds the amount in the chosen unit.
+    currency?: "eth" | "tron";
     config?: unknown;
 }): Promise<RoomRow> {
     const module = requireModule(input.gameId);
@@ -97,6 +100,7 @@ export async function createRoom(input: {
         hostUserId: input.hostUserId,
         guestUserId: null,
         stakeEth: input.stakeEth,
+        currency: input.currency ?? "eth",
         status: "awaiting_host_stake",
         resultKind: "pending",
         winnerUserId: null,
@@ -286,6 +290,7 @@ async function fanOutTransition(roomId: string, tx: AppliedTransition): Promise<
             roomId,
             potId: tx.room.potId,
             stakeEth: tx.room.stakeEth,
+            currency: tx.room.currency,
             hostUserId: tx.room.hostUserId,
             guestUserId: tx.room.guestUserId,
             outcome: tx.outcome,
@@ -395,6 +400,7 @@ function toRoomMeta(room: RoomRow, hostName: string, guestName: string | null): 
         guestUserId: room.guestUserId,
         guestDisplayName: guestName,
         stakeEth: room.stakeEth,
+        currency: room.currency,
         status: room.status,
         result,
         createdAt: room.createdAt,
@@ -444,6 +450,7 @@ export interface RoomListItem {
     id: string;
     gameId: string;
     stakeEth: string;
+    currency: "eth" | "tron";
     status: RoomRow["status"];
     hostUserId: string;
     hostDisplayName: string;
@@ -477,6 +484,7 @@ export async function listRooms(input: {
             id: schema.rooms.id,
             gameId: schema.rooms.gameId,
             stakeEth: schema.rooms.stakeEth,
+            currency: schema.rooms.currency,
             status: schema.rooms.status,
             hostUserId: schema.rooms.hostUserId,
             hostDisplayName: schema.users.displayName,
@@ -498,6 +506,7 @@ export async function listHistory(userId: string, limit: number): Promise<GameHi
             id: schema.rooms.id,
             gameId: schema.rooms.gameId,
             stakeEth: schema.rooms.stakeEth,
+            currency: schema.rooms.currency,
             hostUserId: schema.rooms.hostUserId,
             guestUserId: schema.rooms.guestUserId,
             resultKind: schema.rooms.resultKind,
@@ -529,6 +538,7 @@ export async function listHistory(userId: string, limit: number): Promise<GameHi
             id: r.id,
             gameId: r.gameId,
             stakeEth: r.stakeEth,
+            currency: r.currency,
             role,
             opponent: opponentId ? { id: opponentId, displayName: opponentName ?? "" } : null,
             outcome,

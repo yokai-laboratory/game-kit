@@ -1,9 +1,16 @@
 import type { GameHistoryItem } from "@game-kit/game-core";
+import { API_BASE } from "./config";
+import { getSessionToken } from "./session";
 
-// Tiny fetch wrapper around the API. All calls are same-origin (/api is proxied in dev, served by
-// Caddy in prod) and credentialed so the session cookie travels. Game-agnostic.
-
-const BASE = "/api";
+// Game-agnostic fetch wrapper around the API. Attaches the bearer session token (see session.ts) so
+// the request authenticates whether the web is same-origin with the api or on a separate host.
+// Callers pass an api-relative path ("/me"); API_BASE resolves to the proxy prefix or the api origin.
+export function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
+    const token = getSessionToken();
+    const headers = new Headers(init.headers);
+    if (token) headers.set("authorization", `Bearer ${token}`);
+    return fetch(`${API_BASE}${path}`, { ...init, headers });
+}
 
 async function json<T>(res: Response): Promise<T> {
     if (!res.ok) {
@@ -18,7 +25,7 @@ export interface Me {
 }
 
 export async function getMe(): Promise<Me> {
-    return json<Me>(await fetch(`${BASE}/me`, { credentials: "include" }));
+    return json<Me>(await apiFetch("/me"));
 }
 
 export interface PointPack {
@@ -30,11 +37,11 @@ export interface PointPack {
 
 // The store: current points balance + the buyable packs (catalog defined server-side).
 export async function getPoints(): Promise<{ balance: number; packs: PointPack[] }> {
-    return json(await fetch(`${BASE}/payments/points`, { credentials: "include" }));
+    return json(await apiFetch("/payments/points"));
 }
 
 export async function logout(): Promise<void> {
-    await fetch(`${BASE}/auth/logout`, { method: "POST", credentials: "include" });
+    await apiFetch("/auth/logout", { method: "POST" });
 }
 
 export interface PresenceConfig {
@@ -43,7 +50,7 @@ export interface PresenceConfig {
 }
 
 export async function getPresenceConfig(): Promise<PresenceConfig> {
-    return json<PresenceConfig>(await fetch(`${BASE}/presence/config`, { credentials: "include" }));
+    return json<PresenceConfig>(await apiFetch("/presence/config"));
 }
 
 export interface GameInfo {
@@ -53,13 +60,14 @@ export interface GameInfo {
 }
 
 export async function listGames(): Promise<{ games: GameInfo[]; defaultGameId: string }> {
-    return json(await fetch(`${BASE}/rooms/games`, { credentials: "include" }));
+    return json(await apiFetch("/rooms/games"));
 }
 
 export interface RoomListItem {
     id: string;
     gameId: string;
     stakeEth: string;
+    currency: "eth" | "tron";
     status: "awaiting_host_stake" | "waiting" | "awaiting_guest_stake" | "in_progress";
     hostUserId: string;
     hostDisplayName: string;
@@ -72,17 +80,19 @@ export async function listRooms(params: { gameId?: string; minStake?: number; ma
     if (params.gameId) qs.set("gameId", params.gameId);
     if (params.minStake !== undefined) qs.set("minStake", String(params.minStake));
     if (params.maxStake !== undefined) qs.set("maxStake", String(params.maxStake));
-    const data = await json<{ rooms: RoomListItem[] }>(
-        await fetch(`${BASE}/rooms?${qs.toString()}`, { credentials: "include" }),
-    );
+    const data = await json<{ rooms: RoomListItem[] }>(await apiFetch(`/rooms?${qs.toString()}`));
     return data.rooms;
 }
 
-export async function createRoom(input: { gameId: string; stakeEth: string; config?: unknown }): Promise<{ id: string; gameId: string }> {
+export async function createRoom(input: {
+    gameId: string;
+    stakeEth: string;
+    currency?: "eth" | "tron";
+    config?: unknown;
+}): Promise<{ id: string; gameId: string }> {
     const data = await json<{ room: { id: string; gameId: string } }>(
-        await fetch(`${BASE}/rooms`, {
+        await apiFetch("/rooms", {
             method: "POST",
-            credentials: "include",
             headers: { "content-type": "application/json" },
             body: JSON.stringify(input),
         }),
@@ -93,15 +103,13 @@ export async function createRoom(input: { gameId: string; stakeEth: string; conf
 export async function listHistory(limit?: number): Promise<GameHistoryItem[]> {
     const qs = new URLSearchParams();
     if (limit !== undefined) qs.set("limit", String(limit));
-    const data = await json<{ items: GameHistoryItem[] }>(
-        await fetch(`${BASE}/rooms/history?${qs.toString()}`, { credentials: "include" }),
-    );
+    const data = await json<{ items: GameHistoryItem[] }>(await apiFetch(`/rooms/history?${qs.toString()}`));
     return data.items;
 }
 
 export async function joinRoom(id: string): Promise<{ id: string; gameId: string }> {
     const data = await json<{ room: { id: string; gameId: string } }>(
-        await fetch(`${BASE}/rooms/${id}/join`, { method: "POST", credentials: "include" }),
+        await apiFetch(`/rooms/${id}/join`, { method: "POST" }),
     );
     return data.room;
 }
@@ -111,7 +119,8 @@ export interface Preflight {
     limits: {
         monthlyLimitCents: number | null;
         monthSpentCents: number;
-        periodStart: string;
+        // null for TRON rooms (no chain pricing / monthly-cap interaction).
+        periodStart: string | null;
         offlineAutoChargeEnabled: boolean;
         perTxOfflineCapCents: number | null;
     };
@@ -119,5 +128,16 @@ export interface Preflight {
 }
 
 export async function getPreflight(roomId: string): Promise<Preflight> {
-    return json<Preflight>(await fetch(`${BASE}/payments/preflight/${roomId}`, { credentials: "include" }));
+    return json<Preflight>(await apiFetch(`/payments/preflight/${roomId}`));
+}
+
+// Advisory TRON ledger balance (+ the app's house rake) for the current user. null fields mean
+// "unavailable" -- the web renders a dash; the charge path re-checks authoritatively.
+export interface TronBalance {
+    balanceCents: number | null;
+    rakeBps: number | null;
+}
+
+export async function fetchTronBalance(): Promise<TronBalance> {
+    return json<TronBalance>(await apiFetch("/payments/tron-balance"));
 }

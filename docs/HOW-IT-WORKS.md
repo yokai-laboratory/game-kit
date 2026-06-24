@@ -96,7 +96,9 @@ Two rules carry most of the design:
    builds a fresh per-seat view for every socket, so secrets never reach the wrong browser.
 
 Omit `settlement()` and the pot pays out automatically: winner takes 2× stake, a draw refunds each
-player. Implement it only for custom splits.
+player. Implement it only for custom splits. Settlement legs are always expressed in **wei**; on a
+TRON-denominated room the engine scales them to ledger cents by the stake's ratio, so the same
+`settlement()` works on either rail ([§6](#6-payments-two-shapes-of-money)).
 
 Full interface walkthrough: [`packages/game-core/README.md`](../packages/game-core/README.md).
 
@@ -171,6 +173,22 @@ charge(amount, potId) ─▶ intent (pending) ─▶ TRON events socket / poll b
                                           both players completed ─┴─▶ room starts
 room completes ─▶ settleRoom ─▶ distributePot(winner legs)  // winner-takes-pot / draw-refunds
 ```
+
+#### Two rails: ETH and TRON
+
+A pot stake runs on one of two rails, chosen at room creation (`rooms.currency`, picked in the lobby):
+
+| Rail | Charge | Priced in | Settle | Notes |
+|---|---|---|---|---|
+| **`eth`** | `requestCharge` → `/oauth/payments/charge` | wei (`ethToWei`) | `requestDistribute` → on-chain `distributePot` | the on-chain CreditVault pot |
+| **`tron`** | `tronClient.payments.tronCharge` | ledger cents (`tronToCents`, 1 TRON = 1¢) | `tronClient.payments.tronDistribute` | TRON's platform ledger — settles instantly, no chain/escrow; can return `insufficient_balance` (top-up + retry) |
+
+Both rails share the identical intent machinery, the `completed`-vs-`redirect` consent flow, and the
+`groupId`-bundled activity feed; only the denomination and the charge/distribute calls differ.
+`settleRoom` computes leg shares once in wei (from `module.settlement()` or the default) and, on the
+TRON rail, scales each leg to cents by the stake's cents:wei ratio — so a custom split is preserved
+across either denomination. `payments/units.ts` holds `tronToCents`; `ethToWei` lives in
+`game/settlement.ts`.
 
 ### Shape B — one-way purchase (the store)
 

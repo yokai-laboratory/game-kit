@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ClientMessage, GameEvent, RoomView, ServerMessage } from "@game-kit/game-core";
+import { wsUrl } from "./config";
 
 // Generic room socket. Game-agnostic: it carries the redacted RoomView (whose `game.state` shape is
 // owned by the active game) and a `submitMove(move)` that sends an opaque move the server validates.
@@ -34,8 +35,7 @@ export function useRoomSocket(roomId: string | null): RoomConnection {
         let retry: ReturnType<typeof setTimeout> | null = null;
 
         const connect = (): void => {
-            const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-            const ws = new WebSocket(`${proto}//${window.location.host}/ws/room/${roomId}`);
+            const ws = new WebSocket(wsUrl(`/ws/room/${roomId}`));
             wsRef.current = ws;
 
             ws.onopen = () => {

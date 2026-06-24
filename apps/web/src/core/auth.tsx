@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { getMe, logout as apiLogout } from "./api";
+import { captureSessionFromUrl, clearSessionToken } from "./session";
 
 interface User {
     id: string;
@@ -34,10 +35,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const logout = useCallback(async () => {
         await apiLogout();
+        clearSessionToken();
         await refresh();
     }, [refresh]);
 
     useEffect(() => {
+        // The OAuth callback lands us at /lobby#session=<id>. Capture + persist the token (and strip
+        // the fragment) before the first /me, so the very first load is already authenticated.
+        captureSessionFromUrl();
         void refresh();
     }, [refresh]);
 

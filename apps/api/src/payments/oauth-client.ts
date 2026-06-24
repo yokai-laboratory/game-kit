@@ -9,6 +9,10 @@ import { tronClient } from "./tron-client.js";
 
 // Game-attached metadata echoed on the user's TRON activity feed so a charge reads as *why* it
 // happened. TRON validates each field, byte-caps the whole object, and SSRF-re-hosts `image`.
+//
+// `groupId` is TRON's activity-bundle key: rows sharing one groupId render as a single cluster on
+// the activity feed (and TRON propagates it down the lineage). A pot room stamps its room id so the
+// stakes and the winnings/refund distribution read as one story on each player's feed.
 export type ChargeMetadata = {
     purpose?: string;
     title?: string;
@@ -16,6 +20,7 @@ export type ChargeMetadata = {
     quantity?: number;
     category?: string;
     sessionId?: string;
+    groupId?: string;
     image?: string;
     extra?: Record<string, string | number | boolean>;
 };
