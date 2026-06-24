@@ -96,6 +96,10 @@ resolves it — no Verdaccio, no scope pin, and Docker builds need no host netwo
   the purchase flow and change what `creditPurchaseIfCompleted` writes — don't invent a new money
   path. Crediting is idempotent (a guarded `UPDATE`); keep it that way (the events socket, poll
   backstop, and return-page sync can all observe the same completion).
+- **Two stake rails (`rooms.currency`).** A pot stake runs on either `eth` (priced in wei, on-chain
+  `distributePot`) or `tron` (priced in ledger cents via `payments/units.ts`, instant
+  `tronDistribute`), chosen in the lobby. They share all the intent plumbing — only the charge/distribute
+  calls and denomination differ. See `docs/HOW-IT-WORKS.md` §6.
 - **Concurrency.** Moves apply inside a row-locked transaction (`SELECT … FOR UPDATE`) so two moves
   serialize on the room row even across replicas.
 

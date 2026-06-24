@@ -16,8 +16,11 @@ const createSchema = z.object({
     gameId: z.string().min(1).optional(),
     stakeEth: z
         .string()
-        .regex(/^\d+(\.\d{1,18})?$/u, "stake must be a positive decimal ETH amount")
+        .regex(/^\d+(\.\d{1,18})?$/u, "stake must be a positive decimal amount")
         .refine((s) => Number.parseFloat(s) > 0, "stake must be > 0"),
+    // Stake denomination. "eth" prices the stake in decimal ETH (on-chain pot); "tron" prices it in
+    // whole TRON ledger credits (1 TRON = 1 cent). Defaults to "eth".
+    currency: z.enum(["eth", "tron"]).optional(),
     // Game-specific config, validated against the module's own schema inside the engine.
     config: z.unknown().optional(),
 });
@@ -37,6 +40,7 @@ roomsRoutes.post("/", async (c) => {
             hostUserId: user.id,
             hostDisplayName: user.displayName,
             stakeEth: parsed.data.stakeEth,
+            currency: parsed.data.currency,
             config: parsed.data.config,
         });
         return c.json({ room: { id: room.id, gameId: room.gameId } });

@@ -10,6 +10,11 @@ function usd(cents: number): string {
     return `$${(cents / 100).toFixed(2)}`;
 }
 
+// 1 TRON = 1 ledger cent, so the integer cent value IS the TRON count -- render it directly.
+function tron(cents: number): string {
+    return `${cents.toLocaleString()} TRON`;
+}
+
 export function Room(): React.JSX.Element {
     const { id } = useParams<{ id: string }>();
     const { view, error, submitMove, submitInput, lastEvent, relayPresence, presenceActive } = useRoomSocket(
@@ -35,12 +40,14 @@ export function Room(): React.JSX.Element {
     if (!view) return <main className="room"><p className="empty">Connecting…</p></main>;
 
     const Screen = getGameScreen(view.game.id);
+    const isTron = view.room.currency === "tron";
+    const unit = isTron ? "TRON" : "ETH";
 
     return (
         <main className="room">
             <div className="room-head">
                 <h2>
-                    {view.game.id} · {view.room.stakeEth} ETH
+                    {view.game.id} · {view.room.stakeEth} {unit}
                 </h2>
                 <span className="muted">
                     {view.you.displayName} vs {view.opponent?.displayName ?? "…"}
@@ -53,14 +60,20 @@ export function Room(): React.JSX.Element {
             {youOweStake && (
                 <section className="panel stake">
                     <h3>Stake to play</h3>
-                    {preflight && (
-                        <p className="muted">
-                            {view.room.stakeEth} ETH ≈ {usd(preflight.stake.usdCents)} ·{" "}
-                            {preflight.derived.willChargeInstantly
-                                ? "will charge instantly"
-                                : "you'll confirm on Metatron"}
-                        </p>
-                    )}
+                    {preflight &&
+                        (isTron ? (
+                            <p className="muted">
+                                {tron(preflight.stake.usdCents)} · settles instantly on Metatron (or confirm if over
+                                your cap)
+                            </p>
+                        ) : (
+                            <p className="muted">
+                                {view.room.stakeEth} ETH ≈ {usd(preflight.stake.usdCents)} ·{" "}
+                                {preflight.derived.willChargeInstantly
+                                    ? "will charge instantly"
+                                    : "you'll confirm on Metatron"}
+                            </p>
+                        ))}
                     {preflight?.derived.willExceedCap && (
                         <p className="error">This stake would exceed your monthly cap — raise it on the confirm page.</p>
                     )}
@@ -68,6 +81,12 @@ export function Room(): React.JSX.Element {
                     <PresenceWidget onPlaySessionId={relayPresence} />
                     <p className="muted small">presence: {presenceActive ? "active ✓" : "…"}</p>
 
+                    {chargeStatus.kind === "insufficient_tron" && (
+                        <p className="error">
+                            Not enough TRON: balance {tron(chargeStatus.balanceCents)}, need{" "}
+                            {tron(chargeStatus.requiredCents)}. Top up your TRON balance on Metatron, then retry.
+                        </p>
+                    )}
                     {chargeStatus.kind === "limit_exceeded" ? (
                         <a className="cta" href={chargeStatus.redirectUrl}>
                             Raise cap &amp; pay

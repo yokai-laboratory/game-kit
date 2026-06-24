@@ -67,6 +67,7 @@ export interface RoomListItem {
     id: string;
     gameId: string;
     stakeEth: string;
+    currency: "eth" | "tron";
     status: "awaiting_host_stake" | "waiting" | "awaiting_guest_stake" | "in_progress";
     hostUserId: string;
     hostDisplayName: string;
@@ -83,7 +84,12 @@ export async function listRooms(params: { gameId?: string; minStake?: number; ma
     return data.rooms;
 }
 
-export async function createRoom(input: { gameId: string; stakeEth: string; config?: unknown }): Promise<{ id: string; gameId: string }> {
+export async function createRoom(input: {
+    gameId: string;
+    stakeEth: string;
+    currency?: "eth" | "tron";
+    config?: unknown;
+}): Promise<{ id: string; gameId: string }> {
     const data = await json<{ room: { id: string; gameId: string } }>(
         await apiFetch("/rooms", {
             method: "POST",
@@ -113,7 +119,8 @@ export interface Preflight {
     limits: {
         monthlyLimitCents: number | null;
         monthSpentCents: number;
-        periodStart: string;
+        // null for TRON rooms (no chain pricing / monthly-cap interaction).
+        periodStart: string | null;
         offlineAutoChargeEnabled: boolean;
         perTxOfflineCapCents: number | null;
     };
@@ -122,4 +129,15 @@ export interface Preflight {
 
 export async function getPreflight(roomId: string): Promise<Preflight> {
     return json<Preflight>(await apiFetch(`/payments/preflight/${roomId}`));
+}
+
+// Advisory TRON ledger balance (+ the app's house rake) for the current user. null fields mean
+// "unavailable" -- the web renders a dash; the charge path re-checks authoritatively.
+export interface TronBalance {
+    balanceCents: number | null;
+    rakeBps: number | null;
+}
+
+export async function fetchTronBalance(): Promise<TronBalance> {
+    return json<TronBalance>(await apiFetch("/payments/tron-balance"));
 }
