@@ -50,19 +50,24 @@ export async function roomWsHandler(c: Context): Promise<WSEvents> {
     const onPresenceStatus = (status: PlaySessionGameStatus): void => pushPresenceActive(status === "active");
     const stopPresence = (): void => {
         roomClosed = true;
-        void presence?.stop();
+        // Socket closed ≠ player gone: the browser widget keeps attesting the user half and a
+        // reconnect resumes the game half by heartbeat. Ending the platform session here killed
+        // every reconnect (single-use confirm nonce) — the "presence: ended" death spiral.
+        void presence?.stop(false);
         presence = null;
         currentPlaySessionId = null;
         pushPresenceActive(false);
     };
     const onPresenceRelay = (playSessionId: string): void => {
         if (roomClosed || playSessionId === currentPlaySessionId) return;
-        void presence?.stop();
+        // A NEW session id replaces the old one — that's the one case the old session should be
+        // ended for good (the widget re-minted; the stale session won't be resumed).
+        void presence?.stop(true);
         presence = null;
         currentPlaySessionId = playSessionId;
         void startGameHalfPresence(user.id, playSessionId, onPresenceStatus).then((started) => {
             if (roomClosed || currentPlaySessionId !== playSessionId) {
-                void started?.stop();
+                void started?.stop(false);
                 return;
             }
             presence = started;

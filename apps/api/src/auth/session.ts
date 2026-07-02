@@ -10,6 +10,7 @@ export interface SessionUser {
     displayName: string;
     email: string | null;
     points: number;
+    avatarUrl: string | null;
 }
 
 // Bearer-token session model. The browser session is NOT a cookie. The platform hands each game a
@@ -55,6 +56,7 @@ export async function loadSessionUser(c: Context): Promise<SessionUser | null> {
             displayName: schema.users.displayName,
             email: schema.users.email,
             points: schema.users.points,
+            avatarUrl: schema.users.avatarUrl,
         })
         .from(schema.sessions)
         .innerJoin(schema.users, eq(schema.users.id, schema.sessions.userId))
@@ -66,7 +68,13 @@ export async function loadSessionUser(c: Context): Promise<SessionUser | null> {
         await db.delete(schema.sessions).where(eq(schema.sessions.id, id));
         return null;
     }
-    return { id: found.userId, displayName: found.displayName, email: found.email, points: found.points };
+    return {
+        id: found.userId,
+        displayName: found.displayName,
+        email: found.email,
+        points: found.points,
+        avatarUrl: found.avatarUrl,
+    };
 }
 
 export async function destroySession(c: Context): Promise<void> {

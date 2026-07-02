@@ -21,7 +21,7 @@ async function json<T>(res: Response): Promise<T> {
 }
 
 export interface Me {
-    user: { id: string; displayName: string; email: string | null; points: number } | null;
+    user: { id: string; displayName: string; email: string | null; points: number; avatarUrl: string | null } | null;
 }
 
 export async function getMe(): Promise<Me> {
@@ -71,6 +71,7 @@ export interface RoomListItem {
     status: "awaiting_host_stake" | "waiting" | "awaiting_guest_stake" | "in_progress";
     hostUserId: string;
     hostDisplayName: string;
+    hostAvatarUrl: string | null;
     guestUserId: string | null;
     createdAt: number;
 }

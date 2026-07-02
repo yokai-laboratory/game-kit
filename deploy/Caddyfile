@@ -8,7 +8,9 @@
 #   /*      -> web  (static SPA)
 
 {
-    email {$ACME_EMAIL}
+    # Default keeps the parser happy when ACME_EMAIL is unset (localhost / internal-CA runs
+    # never contact Let's Encrypt); set a real address for production domains.
+    email {$ACME_EMAIL:admin@example.invalid}
     # For local testing without real certs, uncomment:
     # local_certs
 }

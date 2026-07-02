@@ -1,4 +1,4 @@
-import type { PlaySessionGameStatus } from "@metatrongg/sdk/node";
+import { TronError, type PlaySessionGameStatus } from "@metatrongg/sdk/node";
 import { eq } from "drizzle-orm";
 
 import { db, schema } from "../db/client.js";
@@ -63,33 +63,59 @@ export class PlayerPresence {
                 playSessionId: this.playSessionId,
                 userId: this.tronUserId,
             });
-            if (this.stopped) {
-                await tronClient.presence.end({ playSessionId: this.playSessionId }).catch(() => undefined);
-                return;
-            }
+            if (this.stopped) return;
             this.emit(status);
-            this.gameBeat = setInterval(() => {
-                void tronClient.presence
-                    .heartbeat({ playSessionId: this.playSessionId })
-                    .then(({ status: beat }) => {
-                        if (!this.stopped) this.emit(beat);
-                    })
-                    .catch(() => undefined);
-            }, HEARTBEAT_INTERVAL_MS);
+            this.startBeats();
         } catch (error) {
+            // The confirm nonce is SINGLE-USE. A room socket reconnect re-relays the same
+            // playSessionId, and re-confirming it 404s even though the session is alive and this
+            // app already holds its game half. Resume by heartbeating instead — it refreshes the
+            // game-half TTL without needing the nonce. Only if THAT fails is the session dead.
+            if (error instanceof TronError && error.status === 404) {
+                try {
+                    const { status } = await tronClient.presence.heartbeat({ playSessionId: this.playSessionId });
+                    if (this.stopped) return;
+                    this.emit(status);
+                    this.startBeats();
+                    return;
+                } catch {
+                    /* genuinely dead — fall through */
+                }
+            }
             logger.warn({ err: error }, "presence game-half start failed");
+            this.emit("ended");
         }
     }
 
-    async stop(): Promise<void> {
+    private startBeats(): void {
+        this.gameBeat = setInterval(() => {
+            void tronClient.presence
+                .heartbeat({ playSessionId: this.playSessionId })
+                .then(({ status: beat }) => {
+                    if (!this.stopped) this.emit(beat);
+                })
+                .catch(() => undefined);
+        }, HEARTBEAT_INTERVAL_MS);
+    }
+
+    /**
+     * Stop driving the game half. `endSession` tears the platform session down for good — do that
+     * ONLY when a fresh playSessionId replaces this one. A transient socket close must NOT end
+     * the session (the user's browser widget is still attesting; ending here would kill a session
+     * the reconnect wants to resume — the "presence: ended" death spiral). Left alone, the game
+     * half lapses via its own TTL if nobody resumes.
+     */
+    async stop(endSession = false): Promise<void> {
         if (this.stopped) return;
         this.stopped = true;
         if (this.gameBeat !== null) {
             clearInterval(this.gameBeat);
             this.gameBeat = null;
         }
-        this.emit("ended");
-        await tronClient.presence.end({ playSessionId: this.playSessionId }).catch(() => undefined);
+        if (endSession) {
+            this.emit("ended");
+            await tronClient.presence.end({ playSessionId: this.playSessionId }).catch(() => undefined);
+        }
     }
 }
 

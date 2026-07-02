@@ -19,6 +19,9 @@ export const users = pgTable("users", {
     // (see the store purchase flow). Lives here, not on TRON: TRON custodies real money; points are
     // app state. Real inventory would be its own table -- one integer keeps the example legible.
     points: integer("points").notNull().default(0),
+    // Platform avatar (userinfo `picture`), refreshed at every sign-in. Social surfaces (room
+    // lists, opponents) read it so players see faces, not initials.
+    avatarUrl: text("avatar_url"),
     createdAt: epochMs("created_at").notNull(),
 });
 

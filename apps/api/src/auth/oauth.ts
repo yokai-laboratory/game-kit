@@ -91,8 +91,14 @@ authRoutes.get("/callback", async (c) => {
     const existing = existingRows[0];
 
     let userId: string;
+    const picture = typeof (info as { picture?: unknown }).picture === "string" ? (info as { picture: string }).picture : null;
     if (existing) {
         userId = existing.id;
+        // Keep identity fresh: the platform is the source of truth for name + avatar.
+        await db
+            .update(schema.users)
+            .set({ displayName: info.name ?? existing.displayName, avatarUrl: picture })
+            .where(eq(schema.users.id, userId));
     } else {
         userId = nanoid(21);
         await db.insert(schema.users).values({
@@ -101,6 +107,7 @@ authRoutes.get("/callback", async (c) => {
             displayName: info.name ?? "Player",
             // TRON's /userinfo exposes only sub / name / picture (no email by default).
             email: null,
+            avatarUrl: picture,
             createdAt: Date.now(),
         });
     }

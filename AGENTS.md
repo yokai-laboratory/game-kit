@@ -25,7 +25,11 @@ for something the SDK doesn't cover.
 
 **Kit internals.** Before changing anything, read [`docs/HOW-IT-WORKS.md`](docs/HOW-IT-WORKS.md) — the
 architecture, the request lifecycle, the two payment shapes (pot stake vs. one-way purchase), and the
-build-a-game workflow. It's the map for everything below.
+build-a-game workflow. It's the map for everything below. For the web UI, read
+[`docs/SHELL.md`](docs/SHELL.md): the game-centred shell (fullscreen game surface, capsule nav,
+three-column pages, the tap-to-start play stage) and the engine-adapter contract — Unity, Godot,
+GameMaker, or a plain canvas all plug in the same way, and the shell itself carries no engine code.
+Brand the chrome in `apps/web/src/shell.config.tsx`; keep `core/shell/*` and `core/ui/*`.
 
 ## The one big idea: the seam
 

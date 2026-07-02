@@ -7,6 +7,7 @@ interface User {
     displayName: string;
     email: string | null;
     points: number;
+    avatarUrl: string | null;
 }
 
 interface AuthContextValue {

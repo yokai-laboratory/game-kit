@@ -9,6 +9,9 @@ import { getPresenceConfig } from "./api";
 export function PresenceWidget(props: {
     readonly onPlaySessionId: (playSessionId: string) => void;
     readonly onStatus?: (status: string) => void;
+    // True once the widget confirms the player's first-party Metatron session; false means they
+    // need to sign in at the platform in THIS browser before presence can activate.
+    readonly onAuthChange?: (authenticated: boolean) => void;
 }): React.JSX.Element {
     const containerRef = useRef<HTMLDivElement | null>(null);
     const cbRef = useRef(props);
@@ -24,10 +27,23 @@ export function PresenceWidget(props: {
                     apiOrigin: cfg.tronApiOrigin,
                     clientId: cfg.clientId,
                     container: containerRef.current,
+                    // On-brand chip: rounded, faint primary border, glass-adjacent. (The SDK
+                    // swaps to its own fullscreen style when the widget self-promotes to an
+                    // overlay, and restores this after.)
+                    styleIframe: (iframe) => {
+                        iframe.style.border = "1px solid rgba(139, 125, 216, 0.35)";
+                        iframe.style.borderRadius = "0.75rem";
+                        iframe.style.boxShadow = "0 2px 12px rgba(139, 125, 216, 0.15)";
+                        iframe.style.display = "block";
+                        iframe.style.width = "190px";
+                        iframe.style.height = "44px";
+                        iframe.style.background = "rgba(2, 6, 23, 0.6)";
+                    },
                     onPlaySessionId: (id) => {
                         if (id !== null) cbRef.current.onPlaySessionId(id);
                     },
                     onStatus: (status) => cbRef.current.onStatus?.(status),
+                    onAuthChange: (authenticated) => cbRef.current.onAuthChange?.(authenticated),
                 });
             })
             .catch(() => {

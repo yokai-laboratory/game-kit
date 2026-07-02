@@ -454,6 +454,7 @@ export interface RoomListItem {
     status: RoomRow["status"];
     hostUserId: string;
     hostDisplayName: string;
+    hostAvatarUrl: string | null;
     guestUserId: string | null;
     createdAt: number;
 }
@@ -488,6 +489,7 @@ export async function listRooms(input: {
             status: schema.rooms.status,
             hostUserId: schema.rooms.hostUserId,
             hostDisplayName: schema.users.displayName,
+            hostAvatarUrl: schema.users.avatarUrl,
             guestUserId: schema.rooms.guestUserId,
             createdAt: schema.rooms.createdAt,
         })
