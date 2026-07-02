@@ -28,13 +28,13 @@ export function PaymentReturn(): React.JSX.Element {
             if (!active) return;
             if (roomId) {
                 setMsg("Returning to your room…");
-                setTimeout(() => navigate(`/room/${roomId}`), 600);
+                setTimeout(() => navigate(`/?room=${roomId}`), 600);
             } else if (isStore) {
                 // A purchase just settled; pull the new balance before landing back on the store.
                 await refresh();
                 navigate("/store");
             } else {
-                navigate("/lobby");
+                navigate("/");
             }
         };
         void go();

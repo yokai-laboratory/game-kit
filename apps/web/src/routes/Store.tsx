@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { getPoints, type PointPack } from "../core/api";
 import { useAuth } from "../core/auth";
 import { usePurchase } from "../core/use-charge";
+import { GameSurface } from "../core/shell/GameSurface";
+import { ShellHeader } from "../core/shell/ShellHeader";
 
 // The store: buy point packs with a one-way TRON charge. This is the inventory/soft-currency pattern
 // — unlike a room stake there is no pot and no refund; the charge debits the player and the server
@@ -38,7 +40,10 @@ export function Store(): React.JSX.Element {
     };
 
     return (
-        <main className="store">
+        <>
+        <GameSurface dim />
+        <ShellHeader title="Store" right={<span className="chip">◆ {user?.points ?? 0}</span>} />
+        <main className="page overlay">
             <section className="panel">
                 <h2>Store</h2>
                 <p className="muted">
@@ -84,5 +89,6 @@ export function Store(): React.JSX.Element {
                 {status.kind === "error" && <p className="error">{status.message}</p>}
             </section>
         </main>
+        </>
     );
 }
