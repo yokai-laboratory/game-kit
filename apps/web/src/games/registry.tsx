@@ -17,3 +17,14 @@ const SCREENS: Record<string, GameScreen> = {
 export function getGameScreen(gameId: string): GameScreen | undefined {
     return SCREENS[gameId];
 }
+
+// Optional ambient backdrop per game — typically the game's ENGINE in attract mode (Unity,
+// Godot, GameMaker, plain canvas… the shell doesn't care; see docs/SHELL.md). A game without one
+// gets the shell's engine-free aurora.
+export type GameBackdrop = () => React.JSX.Element;
+
+const BACKDROPS: Record<string, GameBackdrop> = {};
+
+export function getGameBackdrop(gameId: string): GameBackdrop | undefined {
+    return BACKDROPS[gameId];
+}
