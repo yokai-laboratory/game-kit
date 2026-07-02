@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS users (
   display_name  TEXT NOT NULL,
   email         TEXT,
   points        INTEGER NOT NULL DEFAULT 0,
+  avatar_url    TEXT,
   created_at    BIGINT NOT NULL
 );
 
@@ -86,6 +87,7 @@ CREATE INDEX IF NOT EXISTS opi_status_idx ON oauth_payment_intents(status, expir
 -- Defensive online-migrations for databases created by an earlier version of this template.
 -- Postgres supports idempotent ADD COLUMN IF NOT EXISTS, so on a fresh deploy these are no-ops.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS points INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
 ALTER TABLE rooms ADD COLUMN IF NOT EXISTS currency TEXT NOT NULL DEFAULT 'eth';
 ALTER TABLE oauth_payment_intents ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'stake';
 ALTER TABLE oauth_payment_intents ADD COLUMN IF NOT EXISTS credit_points INTEGER;
